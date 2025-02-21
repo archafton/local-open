@@ -2,6 +2,8 @@
 
 Project Tacitus is a comprehensive platform designed to provide users with access to legislative data, voting records, and representative information. By leveraging data from various government sources and applying advanced processing techniques, it aims to make legislative information more accessible and understandable to citizens.
 
+![image](preview.png)
+
 ## Project Structure
 
 ```
