@@ -1,7 +1,7 @@
 # Tags addendum, this list isn't comprehensive, a running list of ideas to help searching and visualizations.
 
 ### Policy Area:
-Ex: 
+Ex: 32 Policy Areas that align with the official categorization used by Congress.gov
 ```
  Agriculture and Food
  Animals
@@ -34,6 +34,7 @@ Ex:
  Transportation and Public Works
  Water Resources Development
  Civil Rights and Liberties, Minority Issues
+ ```
 
 
 These tags indicate the main policy areas or domains that the bill addresses.
