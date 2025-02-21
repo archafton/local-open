@@ -102,7 +102,7 @@ Create a `.env` file in the project backend,
 ```bash
 touch backend/.env
 ```
-See [Example .env](Docs/2_Technical_Documentation/example-env.md) for template.
+See [Example .env](Docs/2_Technical_Documentation/example-env) for template.
 
 Note: You'll need to register for an API key at api.congress.gov to use this application.
 
@@ -172,8 +172,8 @@ Additional documentation is available in the `Docs` directory:
 
 ## Contributing
 
-Please refer to the `CONTRIBUTING.md` file for guidelines on how to contribute to this project.
+Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to contribute to this project.
 
 ## License
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

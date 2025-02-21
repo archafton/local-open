@@ -62,11 +62,15 @@ Project Tacitus is a full-stack legislative data platform that automates the col
 - Component-based structure
 - Dark mode support
 
-### Planned AI Integration
-- Bill text analysis and summarization
-- Automated tagging system
-- Multi-provider AI support (Anthropic/OpenAI)
-- Structured output processing
+### AI Integration
+Current Implementation:
+- Bill text analysis and summarization using Anthropic API
+- Automated tagging system for bills
+
+Future Enhancements:
+- Multi-provider AI support (OpenAI integration)
+- Enhanced structured output processing
+- Advanced analytics capabilities
 
 ## Data Model Overview
 
@@ -124,7 +128,12 @@ Project Tacitus is a full-stack legislative data platform that automates the col
 
 ## Performance Metrics
 
-### Target Specifications
+### Current Metrics
+- Basic response time monitoring
+- Data freshness tracking
+- Error logging and monitoring
+
+### Target Specifications (AWS Implementation)
 - API response time: < 200ms
 - Data freshness: < 24 hours
 - System uptime: 99.9%

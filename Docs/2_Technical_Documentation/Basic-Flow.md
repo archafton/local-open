@@ -1,4 +1,6 @@
-Data flow for local POC of Project Tacitus, focusing on how legislative data, particularly bills, are processed from API retrieval to storage and analysis. This description will incorporate the use of python functions, local postgresql database, and the Anthropic API for bill summarization.
+# Current Data Flow Implementation
+
+This document describes the current local development implementation of Project Tacitus, focusing on how legislative data, particularly bills, are processed from API retrieval to storage and analysis. This implementation uses Python functions, a local PostgreSQL database, and the Anthropic API for bill summarization.
 
 Data Flow:
 

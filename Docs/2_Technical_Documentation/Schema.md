@@ -1,16 +1,18 @@
-# archafton 4/7/2024 - Tags added below schema
+# Database Schema Documentation
 
-This documentation provides an overview of the main tables in the Tacitus data schema, along with their columns and descriptions. The schema is designed to store information about bills, representatives, votes, committees, and users.
+This documentation provides an overview of the main tables in the Tacitus data schema, along with their columns and descriptions. The schema is designed to store information about bills, representatives, votes, committees, tags, and users.
 
 The bills table serves as the central entity, storing details about each legislative bill. The representatives table contains information about elected representatives, while the votes table captures the voting records of representatives on specific bills.
 
 The committees table stores information about congressional committees, and the bill_committees table represents the many-to-many relationship between bills and committees, indicating which committees are associated with each bill.
 
+The tag_types and tag tables stores available tags in a hierarchical structure. The bill_tags table contains the many-to-many relationship between bills and tags.
+
 Lastly, the users table stores information about the registered users of the Tacitus platform, including their username, email, and hashed password.
 
 The schema utilizes primary keys (id columns) to uniquely identify records in each table and foreign keys to establish relationships between tables. For example, the bill_id and representative_id columns in the votes table reference the id columns in the bills and representatives tables, respectively.
 
-This schema provides a foundation for storing and organizing the data required by the Tacitus platform. It can be further extended or modified based on additional requirements or future enhancements.
+This schema provides a foundation for storing and organizing the data required by the Tacitus platform. It can be further extended or modified based on additional requirements or future enhancements, but **this document must be updated to reflect those enhancements or changes.**
 
 ## Tables schema:
 
@@ -92,6 +94,33 @@ This schema provides a foundation for storing and organizing the data required b
 
 The tag system uses a hierarchical structure to organize and categorize bills. Here's how the components work together:
 
+### Hierarchical Organization
+- Tags can have parent-child relationships
+- Enables organizing tags from general to specific
+- Example hierarchy:
+  ```
+  Policy Area (type)
+  └── Healthcare (parent tag)
+      ├── Mental Health
+      ├── Public Health
+      └── Healthcare Access
+  ```
+
+### Tag Relationships
+- Bills can have multiple tags
+- Tags can belong to different types
+- One bill might have:
+  - Policy Area: Healthcare
+  - Bill Type: Authorization
+  - Geographic Focus: National
+  - Time Frame: Permanent
+
+This structured approach enables:
+- Precise bill categorization
+- Flexible search and filtering
+- Clear organization of legislative topics
+- Easy navigation of related bills
+
 ### Tag Types
 Tag types provide high-level categories for organizing tags. The system includes several predefined types:
 
@@ -135,29 +164,4 @@ Tag types provide high-level categories for organizing tags. The system includes
     - Current issues (e.g., Climate Change, Cybersecurity)
     - Highlights trending subjects
 
-### Hierarchical Organization
-- Tags can have parent-child relationships
-- Enables organizing tags from general to specific
-- Example hierarchy:
-  ```
-  Policy Area (type)
-  └── Healthcare (parent tag)
-      ├── Mental Health
-      ├── Public Health
-      └── Healthcare Access
-  ```
-
-### Tag Relationships
-- Bills can have multiple tags
-- Tags can belong to different types
-- One bill might have:
-  - Policy Area: Healthcare
-  - Bill Type: Authorization
-  - Geographic Focus: National
-  - Time Frame: Permanent
-
-This structured approach enables:
-- Precise bill categorization
-- Flexible search and filtering
-- Clear organization of legislative topics
-- Easy navigation of related bills
+See [Tags Addendum](Schema_Tags.md) for a list of current and future tags.
