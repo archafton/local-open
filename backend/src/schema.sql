@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS cosponsored_legislation (
 ALTER TABLE bills
 ADD COLUMN IF NOT EXISTS latest_action TEXT,
 ADD COLUMN IF NOT EXISTS latest_action_date DATE,
+ADD COLUMN IF NOT EXISTS normalized_status VARCHAR(50),
 ADD COLUMN IF NOT EXISTS official_title TEXT,
 ADD COLUMN IF NOT EXISTS short_title TEXT,
 ADD COLUMN IF NOT EXISTS related_bills TEXT[],
@@ -197,3 +198,119 @@ BEGIN
         UNIQUE (member_id, congress, chamber);
     END IF;
 END $$;
+
+-- Create tag system tables
+CREATE TABLE IF NOT EXISTS tag_types (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+    id SERIAL PRIMARY KEY,
+    type_id INTEGER REFERENCES tag_types(id),
+    name TEXT NOT NULL,
+    normalized_name TEXT NOT NULL,  -- lowercase, no spaces for consistent matching
+    parent_id INTEGER REFERENCES tags(id),  -- for hierarchical structure
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(type_id, normalized_name)
+);
+
+CREATE TABLE IF NOT EXISTS bill_tags (
+    bill_id INTEGER REFERENCES bills(id),
+    tag_id INTEGER REFERENCES tags(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (bill_id, tag_id)
+);
+
+-- Add indexes for tag system performance
+CREATE INDEX IF NOT EXISTS idx_tags_type_id ON tags(type_id);
+CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
+CREATE INDEX IF NOT EXISTS idx_bill_tags_tag_id ON bill_tags(tag_id);
+
+-- Function to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Add triggers to update the updated_at column
+DROP TRIGGER IF EXISTS update_tag_types_updated_at ON tag_types;
+CREATE TRIGGER update_tag_types_updated_at
+    BEFORE UPDATE ON tag_types
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_tags_updated_at ON tags;
+CREATE TRIGGER update_tags_updated_at
+    BEFORE UPDATE ON tags
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Insert initial tag types
+INSERT INTO tag_types (name, description)
+VALUES
+    ('Policy Area', 'Main policy areas or domains that the bill addresses'),
+    ('Bill Type', 'Type of legislative action or document'),
+    ('Sponsorship', 'Information about political party sponsorship'),
+    ('Committee', 'Congressional committees responsible for the bill'),
+    ('Geographic Focus', 'Geographic scope or impact of the bill'),
+    ('Beneficiaries', 'Groups or populations the bill aims to benefit'),
+    ('Funding', 'Financial implications or budget impact'),
+    ('Time Frame', 'Intended duration of the bill''s provisions'),
+    ('Related Laws', 'Existing laws or programs the bill relates to'),
+    ('Hot Topics', 'Popular or controversial topics addressed')
+ON CONFLICT (name) DO NOTHING;
+
+-- Insert official Congress.gov Policy Area tags
+INSERT INTO tags (type_id, name, normalized_name, description)
+SELECT 
+    tt.id,
+    t.name,
+    LOWER(REGEXP_REPLACE(t.name, '[^a-zA-Z0-9]+', '_', 'g')), -- normalize name by converting to lowercase and replacing non-alphanumeric chars with underscore
+    'Bills related to ' || t.name
+FROM (
+    VALUES
+        ('Agriculture and Food'),
+        ('Animals'),
+        ('Armed Forces and National Security'),
+        ('Arts, Culture, Religion'),
+        ('Civil Rights and Liberties, Minority Issues'),
+        ('Commerce'),
+        ('Congress'),
+        ('Crime and Law Enforcement'),
+        ('Economics and Public Finance'),
+        ('Education'),
+        ('Emergency Management'),
+        ('Energy'),
+        ('Environmental Protection'),
+        ('Families'),
+        ('Finance and Financial Sector'),
+        ('Foreign Trade and International Finance'),
+        ('Government Operations and Politics'),
+        ('Health'),
+        ('Housing and Community Development'),
+        ('Immigration'),
+        ('International Affairs'),
+        ('Labor and Employment'),
+        ('Law'),
+        ('Native Americans'),
+        ('Public Lands and Natural Resources'),
+        ('Science, Technology, Communications'),
+        ('Social Welfare'),
+        ('Sports and Recreation'),
+        ('Taxation'),
+        ('Transportation and Public Works'),
+        ('Water Resources Development')
+) AS t(name)
+CROSS JOIN (SELECT id FROM tag_types WHERE name = 'Policy Area' LIMIT 1) tt
+ON CONFLICT (type_id, normalized_name) DO UPDATE 
+SET name = EXCLUDED.name,
+    description = EXCLUDED.description;
