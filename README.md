@@ -91,12 +91,18 @@ project-tacitus/
 
 1. **Database Setup**
 ```bash
+brew install postgresql
+brew services start postgresql
 createdb project_tacitus_test
 psql -d project_tacitus_test -f backend/src/schema.sql
 ```
 
 2. **Environment Setup**
-Create a `.env` file in the project root, see `Docs/2_Technical_Documentation/example-env.md`
+Create a `.env` file in the project backend,
+```bash
+touch backend/.env
+```
+See [Example .env](Docs/2_Technical_Documentation/example-env.md) for template.
 
 Note: You'll need to register for an API key at api.congress.gov to use this application.
 
@@ -116,6 +122,8 @@ npm install
 npm start
 ```
 
+The frontend should now be accessible at `http://localhost:3000`.
+
 5. **Database Check**
 ```bash
 psql postgresql://localhost/project_tacitus_test -c "SELECT COUNT(*) FROM bills;"
@@ -126,6 +134,11 @@ psql postgresql://localhost/project_tacitus_test -c "SELECT COUNT(*) FROM bills;
 cd backend
 source venv/bin/activate
 python3 src/python/congressgov/bill_fetch/bill_fetch.py
+python3 src/python/congressgov/bill_fetch/bill_detail_fetch.py
+python3 src/python/congressgov/bill_fetch/bill_enrichment.py
+python3 src/python/congressgov/members_fetch/member_fetch.py
+python3 src/python/congressgov/members_fetch/member_detail_fetch.py
+python3 src/python/congressgov/members_fetch/member_bio.py
 ```
 
 ## Documentation
