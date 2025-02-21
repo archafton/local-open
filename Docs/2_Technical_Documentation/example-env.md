@@ -1,0 +1,13 @@
+DATABASE_URL=postgresql://localhost/project_tacitus_test
+CONGRESSGOV_API_KEY=[INSERTKEY]
+ANTHROPIC_API_KEY=[INSERTKEY]
+CONGRESSGOV_BILLS_LIST_ENDPOINT=https://api.congress.gov/v3/bill
+CONGRESSGOV_BILL_DETAIL_ENDPOINT=https://api.congress.gov/v3/bill/{congress}/{billType}/{billNumber}
+CONGRESSGOV_BILL_SUMMARY_ENDPOINT=https://api.congress.gov/v3/bill/{congress}/{billType}/{billNumber}/summaries
+CONGRESSGOV_BILL_TEXT_ENDPOINT=https://api.congress.gov/v3/bill/{congress}/{billType}/{billNumber}/text
+CONGRESSGOV_BILL_ACTIONS_ENDPOINT=https://api.congress.gov/v3/bill/{congress}/{billType}/{billNumber}/actions
+CONGRESSGOV_MEMBER_LIST_ENDPOINT=https://api.congress.gov/v3/member
+CONGRESSGOV_MEMBER_DETAIL_ENDPOINT=https://api.congress.gov/v3/member/{bioguideId}
+FEC_CANDIDATE_ENDPOINT=https://api.open.fec.gov/v1/candidates
+AI_PROCESSOR_ENDPOINT=anthropic
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022

@@ -1,5 +1,11 @@
 import React from 'react';
 
+const PARTY_DISPLAY_MAP = {
+  'Democratic': 'Democratic',
+  'Republican': 'Republican',
+  'Independent': 'Independent'
+};
+
 const RepresentativesFilters = ({ filters, setFilters }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -29,8 +35,8 @@ const RepresentativesFilters = ({ filters, setFilters }) => {
             className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
             <option value="">All Chambers</option>
-            <option value="senate">Senate</option>
-            <option value="house">House</option>
+            <option value="Senate">Senate</option>
+            <option value="House of Representatives">House of Representatives</option>
           </select>
         </div>
         <div className="flex flex-col">
@@ -42,9 +48,9 @@ const RepresentativesFilters = ({ filters, setFilters }) => {
             className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
             <option value="">All Parties</option>
-            <option value="D">Democratic</option>
-            <option value="R">Republican</option>
-            <option value="I">Independent</option>
+            <option value="Democratic">{PARTY_DISPLAY_MAP['Democratic']} (D)</option>
+            <option value="Republican">{PARTY_DISPLAY_MAP['Republican']} (R)</option>
+            <option value="Independent">{PARTY_DISPLAY_MAP['Independent']} (I)</option>
           </select>
         </div>
       </div>

@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Tab } from '@headlessui/react';
-
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
+const TabButton = ({ isActive, onClick, children }) => (
+  <button
+    onClick={onClick}
+    className={`w-full py-2.5 text-sm font-medium leading-5 ${
+      isActive
+        ? 'bg-white dark:bg-gray-800 shadow text-blue-700 dark:text-blue-400'
+        : 'text-gray-600 dark:text-gray-400 hover:bg-white/[0.12] hover:text-blue-700'
+    }`}
+  >
+    {children}
+  </button>
+);
 
 const RepresentativeDetails = () => {
   const { bioguideId } = useParams();
@@ -159,28 +166,20 @@ const RepresentativeDetails = () => {
 
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-        <Tab.Group onChange={setActiveTab}>
-          <Tab.List className="flex space-x-1 rounded-t-lg bg-gray-100 dark:bg-gray-700 p-1">
-            {['Overview', 'Voting Record', 'Sponsored Bills'].map((category, idx) => (
-              <Tab
-                key={idx}
-                className={({ selected }) =>
-                  classNames(
-                    'w-full py-2.5 text-sm font-medium leading-5',
-                    'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
-                    selected
-                      ? 'bg-white dark:bg-gray-800 shadow text-blue-700 dark:text-blue-400'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-white/[0.12] hover:text-blue-700'
-                  )
-                }
-              >
-                {category}
-              </Tab>
-            ))}
-          </Tab.List>
-          <Tab.Panels className="p-4">
-            {/* Overview Panel */}
-            <Tab.Panel>
+        <div className="flex space-x-1 rounded-t-lg bg-gray-100 dark:bg-gray-700 p-1">
+          {['Overview', 'Voting Record', 'Sponsored Bills'].map((category, idx) => (
+            <TabButton
+              key={idx}
+              isActive={activeTab === idx}
+              onClick={() => setActiveTab(idx)}
+            >
+              {category}
+            </TabButton>
+          ))}
+        </div>
+        <div className="p-4">
+          {/* Overview Panel */}
+          {activeTab === 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Leadership History */}
                 <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
@@ -255,18 +254,18 @@ const RepresentativeDetails = () => {
                   </div>
                 </div>
               </div>
-            </Tab.Panel>
+          )}
 
-            {/* Voting Record Panel */}
-            <Tab.Panel>
+          {/* Voting Record Panel */}
+          {activeTab === 1 && (
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Voting Record</h3>
                 <p className="text-gray-600 dark:text-gray-300">Coming soon...</p>
               </div>
-            </Tab.Panel>
+          )}
 
-            {/* Sponsored Bills Panel */}
-            <Tab.Panel>
+          {/* Sponsored Bills Panel */}
+          {activeTab === 2 && (
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Sponsored and Co-sponsored Bills</h3>
                 {representative.sponsored_bills?.length > 0 ? (
@@ -289,9 +288,8 @@ const RepresentativeDetails = () => {
                   <p className="text-gray-600 dark:text-gray-300">No bills found</p>
                 )}
               </div>
-            </Tab.Panel>
-          </Tab.Panels>
-        </Tab.Group>
+          )}
+        </div>
       </div>
     </div>
   );

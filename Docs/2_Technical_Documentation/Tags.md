@@ -1,7 +1,41 @@
 # Tags addendum, this list isn't comprehensive, a running list of ideas to help searching and visualizations.
 
 ### Policy Area:
-Ex: Healthcare, Education, Environment, Transportation, Agriculture, Defense, Immigration, etc.
+Ex: 
+```
+ Agriculture and Food
+ Animals
+ Armed Forces and National Security
+ Arts, Culture, Religion
+ Commerce
+ Congress
+ Crime and Law Enforcement
+ Economics and Public Finance
+ Education
+ Emergency Management
+ Energy
+ Environmental Protection
+ Families
+ Finance and Financial Sector
+ Foreign Trade and International Finance
+ Government Operations and Politics
+ Health
+ Housing and Community Development
+ Immigration
+ International Affairs
+ Labor and Employment
+ Law
+ Native Americans
+ Public Lands and Natural Resources
+ Science, Technology, Communications
+ Social Welfare
+ Sports and Recreation
+ Taxation
+ Transportation and Public Works
+ Water Resources Development
+ Civil Rights and Liberties, Minority Issues
+
+
 These tags indicate the main policy areas or domains that the bill addresses.
 
 ### Bill Type:

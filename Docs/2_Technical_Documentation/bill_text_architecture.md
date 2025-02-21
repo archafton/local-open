@@ -108,7 +108,7 @@ def process_bill(congress, bill_type, bill_number):
 - Start with local storage
 - Add S3 upload capability
 - Switch to S3 as primary storage
-- Keep local as cache/backup
+- Keep local as cache/backup/development
 
 ### 4. Access Patterns
 - Read-heavy workload

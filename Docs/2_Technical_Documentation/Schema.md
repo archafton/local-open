@@ -21,10 +21,12 @@ This schema provides a foundation for storing and organizing the data required b
     sponsor_id:         The unique identifier of the bill's sponsor (foreign key referencing representatives.id).
     introduced_date:    The date when the bill was introduced.
     summary:            The LLM-generated summary of the bill.
-    tags:               The LLM-generated categorical tags.
     congress:           The number of the Congress in which the bill was introduced.
     status:             The current status of the bill (e.g., "Introduced", "Passed House", "Enacted").
+    normalized_status:  The standardized status for consistent filtering.
     bill_text:          The full text of the bill.
+    latest_action:      The most recent action taken on the bill.
+    latest_action_date: The date of the most recent action.
 
 ### representatives: Stores information about elected representatives.
     id:                 Auto-incrementing unique identifier for each representative (primary key).
@@ -62,45 +64,100 @@ This schema provides a foundation for storing and organizing the data required b
     password_hash:      The hashed password of the user.
     created_at:         The timestamp indicating when the user account was created (defaults to the current timestamp).
 
+### tag_types: Stores categories for organizing tags.
+    id:                 Auto-incrementing unique identifier for each tag type (primary key).
+    name:               The name of the tag type (e.g., "Policy Area", "Bill Type").
+    description:        A description of what this tag type represents.
+    created_at:         The timestamp when the tag type was created.
+    updated_at:         The timestamp when the tag type was last updated.
+
+### tags: Stores individual tags that can be applied to bills.
+    id:                 Auto-incrementing unique identifier for each tag (primary key).
+    type_id:            The type of this tag (foreign key referencing tag_types.id).
+    name:               The display name of the tag.
+    normalized_name:    A standardized version of the name for consistent lookups.
+    parent_id:          Optional reference to a parent tag for hierarchical organization (self-referencing foreign key).
+    description:        A description of what this tag represents.
+    created_at:         The timestamp when the tag was created.
+    updated_at:         The timestamp when the tag was last updated.
+
+### bill_tags: Represents the many-to-many relationship between bills and tags.
+    bill_id:            The unique identifier of the associated bill (foreign key referencing bills.id).
+    tag_id:             The unique identifier of the associated tag (foreign key referencing tags.id).
+    created_at:         The timestamp when the association was created.
+                       *The combination of bill_id and tag_id forms the primary key.
+
 ------
-# Tags addendum, this list isn't comprehensive, a running list of ideas to help searching and visualizations.
+# Tag System Overview
 
-### Policy Area:
-Ex: Healthcare, Education, Environment, Transportation, Agriculture, Defense, Immigration, etc.
-These tags indicate the main policy areas or domains that the bill addresses.
+The tag system uses a hierarchical structure to organize and categorize bills. Here's how the components work together:
 
-### Bill Type:
-Ex: Appropriations, Authorization, Amendment, Resolution, Concurrent Resolution, etc.
-These tags specify the type of legislative action or document the bill represents.
+### Tag Types
+Tag types provide high-level categories for organizing tags. The system includes several predefined types:
 
-### Sponsorship:
-Ex: Sponsored by Democrats, Sponsored by Republicans, Bipartisan Sponsorship, etc.
-These tags provide information about the political party or parties sponsoring the bill.
+1. Policy Area
+   - Main policy domains (e.g., Healthcare, Education, Environment)
+   - Helps categorize bills by their primary focus
 
-### Committee:
-Ex: House Judiciary Committee, Senate Finance Committee, Joint Economic Committee, etc.
-These tags indicate the congressional committee(s) responsible for reviewing and handling the bill.
+2. Bill Type
+   - Legislative action types (e.g., Appropriations, Authorization, Resolution)
+   - Indicates the nature of the legislative document
 
-### Geographic Focus:
-Ex: State-Specific, Regional, National, International, etc.
-These tags highlight the geographic scope or impact of the bill.
+3. Sponsorship
+   - Political affiliation info (e.g., Bipartisan, Democratic Sponsored)
+   - Shows the political context of the bill
 
-### Beneficiaries or Affected Groups:
-Ex: Veterans, Small Businesses, Students, Seniors, Low-Income Families, etc.
-These tags identify the specific groups or populations that the bill aims to benefit or impact.
+4. Committee
+   - Congressional committees (e.g., House Judiciary, Senate Finance)
+   - Links bills to their reviewing committees
 
-### Funding or Budget:
-Ex: Budget Increase, Budget Cut, Revenue Neutral, etc.
-These tags provide information about the financial implications or budget impact of the bill.
+5. Geographic Focus
+   - Spatial scope (e.g., State-Specific, National, International)
+   - Indicates the geographic impact
 
-### Time Frame:
-Ex: Short-Term, Long-Term, Permanent, Temporary, etc.
-These tags indicate the intended duration or time frame of the bill's provisions.
+6. Beneficiaries
+   - Target groups (e.g., Veterans, Small Businesses, Students)
+   - Shows who the bill aims to help
 
-### Related Laws or Programs:
-Ex: Affordable Care Act, No Child Left Behind Act, Voting Rights Act, etc.
-These tags link the bill to existing laws, programs, or initiatives that it relates to or aims to modify.
+7. Funding
+   - Budget implications (e.g., Budget Increase, Revenue Neutral)
+   - Indicates financial impact
 
-### Hot Topics or Buzzwords:
-Ex: Climate Change, Gun Control, LGBT Rights, Cybersecurity, Infrastructure, etc.
-These tags highlight popular or controversial topics that the bill addresses, making it easier to identify bills related to specific issues.
+8. Time Frame
+   - Duration info (e.g., Short-Term, Permanent)
+   - Shows intended timeline
+
+9. Related Laws
+   - Connections to existing legislation
+   - Links bills to relevant legal framework
+
+10. Hot Topics
+    - Current issues (e.g., Climate Change, Cybersecurity)
+    - Highlights trending subjects
+
+### Hierarchical Organization
+- Tags can have parent-child relationships
+- Enables organizing tags from general to specific
+- Example hierarchy:
+  ```
+  Policy Area (type)
+  └── Healthcare (parent tag)
+      ├── Mental Health
+      ├── Public Health
+      └── Healthcare Access
+  ```
+
+### Tag Relationships
+- Bills can have multiple tags
+- Tags can belong to different types
+- One bill might have:
+  - Policy Area: Healthcare
+  - Bill Type: Authorization
+  - Geographic Focus: National
+  - Time Frame: Permanent
+
+This structured approach enables:
+- Precise bill categorization
+- Flexible search and filtering
+- Clear organization of legislative topics
+- Easy navigation of related bills

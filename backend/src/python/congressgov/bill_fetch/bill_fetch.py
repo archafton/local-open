@@ -51,6 +51,54 @@ def save_to_json(data, filename):
         json.dump(data, f, indent=2)
     return file_path
 
+def normalize_status(action_text):
+    """
+    Map action text to a normalized status value
+    """
+    if not action_text:
+        return None
+        
+    action_text = action_text.lower()
+    
+    # Direct matches first
+    if any(term in action_text for term in ['became public law', 'became law']):
+        return 'Became Law'
+    elif any(term in action_text for term in ['enacted', 'approved by president']):
+        return 'Enacted'
+    elif 'passed' in action_text:
+        if 'house' in action_text:
+            return 'Passed House'
+        elif 'senate' in action_text:
+            return 'Passed Senate'
+    
+    # Calendar placements indicate progress beyond committee
+    if 'placed on' in action_text and 'calendar' in action_text:
+        if 'senate' in action_text:
+            return 'Reported'  # Senate calendar placement typically follows committee reporting
+        elif 'union calendar' in action_text:
+            return 'Reported'  # House Union Calendar is for reported bills
+        
+    # Committee actions
+    if any(term in action_text for term in ['reported', 'ordered to be reported']):
+        return 'Reported'
+    elif any(term in action_text for term in ['referred to', 'committee']):
+        return 'In Committee'
+    elif 'held at the desk' in action_text:
+        return 'In Committee'  # Bills held at the desk are awaiting committee referral
+        
+    # Introduction status
+    if any(term in action_text for term in ['introduced', 'introduction']):
+        return 'Introduced'
+    
+    # Motion outcomes often indicate passage
+    if 'motion to reconsider laid on the table agreed to' in action_text:
+        if 'house' in action_text:
+            return 'Passed House'
+        elif 'senate' in action_text:
+            return 'Passed Senate'
+    
+    return None
+
 def update_database(bills):
     """
     Update the database with bill information
@@ -69,14 +117,16 @@ def update_database(bills):
             summary = None  # summary will be fetched separately
             tags = [bill.get('policyArea', {}).get('name')] if bill.get('policyArea') else None
             congress = bill.get('congress')
-            status = bill.get('latestAction', {}).get('text', '')
+            action_text = bill.get('latestAction', {}).get('text', '')
+            status = action_text
+            normalized_status = normalize_status(action_text)
             bill_text = None  # bill_text will be fetched separately
 
             cur.execute("""
                 INSERT INTO bills (
                     bill_number, bill_title, sponsor_id, introduced_date, 
-                    summary, tags, congress, status, bill_text
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    summary, tags, congress, status, bill_text, normalized_status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (bill_number) DO UPDATE SET
                     bill_title = EXCLUDED.bill_title,
                     sponsor_id = EXCLUDED.sponsor_id,
@@ -85,10 +135,11 @@ def update_database(bills):
                     tags = EXCLUDED.tags,
                     congress = EXCLUDED.congress,
                     status = EXCLUDED.status,
-                    bill_text = EXCLUDED.bill_text
+                    bill_text = EXCLUDED.bill_text,
+                    normalized_status = EXCLUDED.normalized_status
             """, (
                 bill_number, bill_title, sponsor_id, introduced_date,
-                summary, tags, congress, status, bill_text
+                summary, tags, congress, status, bill_text, normalized_status
             ))
 
         conn.commit()

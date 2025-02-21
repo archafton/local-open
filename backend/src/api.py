@@ -1,9 +1,22 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import json
 import requests
+import logging
+import os
+
+# Set up logging with absolute path
+log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'api.log')
+logging.basicConfig(
+    filename=log_file,
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+# Log startup message
+logging.info("API server starting up")
 
 app = Flask(__name__)
 # Enable CORS for all domains on all routes
@@ -13,7 +26,14 @@ CORS(app)
 DB_CONNECTION_STRING = "postgresql://localhost/project_tacitus_test"
 
 def get_db_connection():
-    return psycopg2.connect(DB_CONNECTION_STRING)
+    logging.info(f"Connecting to database with connection string: {DB_CONNECTION_STRING}")
+    try:
+        conn = psycopg2.connect(DB_CONNECTION_STRING)
+        logging.info("Successfully connected to database")
+        return conn
+    except Exception as e:
+        logging.error(f"Failed to connect to database: {str(e)}")
+        raise
 
 def parse_json_field(value, default=None):
     """Safely parse a JSON field, returning default if parsing fails"""
@@ -28,18 +48,107 @@ def parse_json_field(value, default=None):
 
 @app.route('/api/representatives', methods=['GET'])
 def get_representatives():
+    # Get filter and pagination parameters
+    full_name = request.args.get('full_name', '')
+    chamber = request.args.get('chamber', '')
+    party = request.args.get('party', '')
+    leadership_role = request.args.get('leadership_role', '')
+    state = request.args.get('state', '')
+    district = request.args.get('district', '')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 100))
+
+    # Log the chamber value for debugging
+    logging.info(f"Chamber filter value: '{chamber}'")
+
+    # Get unique chamber values from database for debugging
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("""
-        SELECT chamber, full_name, party, leadership_role, state, district, 
-               total_votes, missed_votes, total_present, bioguide_id 
-        FROM members 
-        WHERE current_member = true
-    """)
-    representatives = cur.fetchall()
+    cur.execute("SELECT DISTINCT chamber FROM members WHERE current_member = true ORDER BY chamber")
+    unique_chambers = [row['chamber'] for row in cur.fetchall()]
+    logging.info(f"Unique chamber values in database: {unique_chambers}")
+
+    # If filtering by House, try both variations
+    if chamber == 'House Of Representatives':
+        cur.execute("SELECT COUNT(*) FROM members WHERE current_member = true AND chamber = 'House'")
+        house_count = cur.fetchone()['count']
+        cur.execute("SELECT COUNT(*) FROM members WHERE current_member = true AND chamber = 'House Of Representatives'")
+        house_of_reps_count = cur.fetchone()['count']
+        logging.info(f"Found {house_count} members with chamber='House' and {house_of_reps_count} with chamber='House Of Representatives'")
+
     cur.close()
     conn.close()
-    return jsonify(representatives)
+
+    # Calculate offset
+    offset = (page - 1) * per_page
+
+    # Build the WHERE clause dynamically
+    where_clauses = ["current_member = true"]
+    params = []
+
+    if full_name:
+        where_clauses.append("LOWER(full_name) LIKE LOWER(%s)")
+        params.append(f"%{full_name}%")
+    
+    if chamber:
+        where_clauses.append("chamber = %s")  # Exact match for chamber
+        params.append(chamber)
+    
+    if party:
+        where_clauses.append("party = %s")  # Exact match for party code
+        params.append(party)
+    
+    if leadership_role:
+        where_clauses.append("LOWER(leadership_role) LIKE LOWER(%s)")
+        params.append(f"%{leadership_role}%")
+    
+    if state:
+        where_clauses.append("LOWER(state) LIKE LOWER(%s)")
+        params.append(f"%{state}%")
+    
+    if district:
+        where_clauses.append("district = %s")
+        params.append(district)
+
+    # Base WHERE clause
+    where_sql = " WHERE " + " AND ".join(where_clauses)
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Get total count
+    count_query = """
+        SELECT COUNT(*) 
+        FROM members
+    """ + where_sql
+
+    cur.execute(count_query, params)
+    total_count = cur.fetchone()['count']
+
+    # Get paginated data
+    data_query = """
+        SELECT chamber, full_name, party, leadership_role, state, district, 
+               total_votes, missed_votes, total_present, bioguide_id 
+        FROM members
+    """ + where_sql + """
+        ORDER BY full_name ASC
+        LIMIT %s OFFSET %s
+    """
+
+    # Add pagination parameters
+    cur.execute(data_query, params + [per_page, offset])
+    representatives = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        'representatives': representatives,
+        'total': total_count,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': (total_count + per_page - 1) // per_page
+    })
 
 @app.route('/api/representatives/<bioguide_id>/bio', methods=['GET'])
 def get_representative_bio(bioguide_id):
@@ -130,6 +239,64 @@ def get_representative_details(bioguide_id):
         
     return jsonify(representative)
 
+@app.route('/api/tags', methods=['GET'])
+def get_tags():
+    """Get all available tags with their types"""
+    logging.info("GET /api/tags - Starting request")
+    conn = None
+    cur = None
+    try:
+        logging.info("GET /api/tags - Getting database connection")
+        conn = get_db_connection()
+        logging.info("GET /api/tags - Creating cursor")
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Get all tags with their types
+        query = """
+            SELECT t.id, t.name, t.normalized_name, t.parent_id, t.description,
+                   tt.name as type, tt.id as type_id
+            FROM tags t
+            JOIN tag_types tt ON t.type_id = tt.id
+            ORDER BY tt.name, t.name
+        """
+        logging.info(f"GET /api/tags - Executing query: {query}")
+        cur.execute(query)
+        
+        logging.info("GET /api/tags - Fetching results")
+        tags = cur.fetchall()
+        logging.info(f"GET /api/tags - Found {len(tags)} tags")
+        
+        # Build hierarchical structure
+        logging.info("GET /api/tags - Building hierarchical structure")
+        tag_map = {}
+        for tag in tags:
+            tag['children'] = []
+            tag_map[tag['id']] = tag
+        logging.info(f"GET /api/tags - Created tag map with {len(tag_map)} entries")
+        
+        # Organize tags into hierarchy
+        logging.info("GET /api/tags - Organizing tags into hierarchy")
+        root_tags = []
+        for tag in tags:
+            if tag['parent_id'] is None:
+                root_tags.append(tag)
+            else:
+                parent = tag_map.get(tag['parent_id'])
+                if parent:
+                    parent['children'].append(tag)
+        logging.info(f"GET /api/tags - Found {len(root_tags)} root tags")
+        
+        logging.info(f"GET /api/tags - Found {len(root_tags)} root tags")
+        return jsonify({'tags': root_tags})
+    except Exception as e:
+        logging.error(f"GET /api/tags - Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 @app.route('/api/bills/congresses', methods=['GET'])
 def get_congresses():
     conn = get_db_connection()
@@ -147,21 +314,151 @@ def get_congresses():
 
 @app.route('/api/bills', methods=['GET'])
 def get_bills():
+    logging.info("GET /api/bills - Fetching bills with filters")
+    # Get filter and pagination parameters
+    bill_number = request.args.get('bill_number', '')
+    bill_title = request.args.get('bill_title', '')
+    status = request.args.get('status', '')
+    sponsor = request.args.get('sponsor', '')
+    congress = request.args.get('congress', '')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 100))
+
+    # Parse tag filters
+    tag_operator = request.args.get('tag_operator', '')
+    tags = []
+    try:
+        tags_str = request.args.get('tags', '[]')
+        logging.info(f"GET /api/bills - Raw tags parameter: {tags_str}")
+        tags = json.loads(tags_str)
+        logging.info(f"GET /api/bills - Parsed tags: {tags}")
+    except json.JSONDecodeError as e:
+        logging.error(f"GET /api/bills - Failed to parse tags: {e}")
+
+    # Calculate offset
+    offset = (page - 1) * per_page
+
+    # Build the WHERE clause dynamically
+    where_clauses = []
+    params = []
+
+    if request.args.get('date_from'):
+        where_clauses.append("DATE(b.introduced_date) >= %s")
+        params.append(request.args.get('date_from'))
+    
+    if request.args.get('date_to'):
+        where_clauses.append("DATE(b.introduced_date) <= %s")
+        params.append(request.args.get('date_to'))
+
+    if bill_number:
+        where_clauses.append("LOWER(b.bill_number) LIKE LOWER(%s)")
+        params.append(f"%{bill_number}%")
+    
+    if bill_title:
+        where_clauses.append("LOWER(b.bill_title) LIKE LOWER(%s)")
+        params.append(f"%{bill_title}%")
+    
+    if status:
+        where_clauses.append("b.normalized_status = %s")
+        params.append(status)
+    
+    if sponsor:
+        where_clauses.append("(LOWER(m.full_name) LIKE LOWER(%s) OR LOWER(b.sponsor_id) LIKE LOWER(%s))")
+        params.extend([f"%{sponsor}%", f"%{sponsor}%"])
+    
+    # Handle tag filtering
+    if tags and tag_operator:
+        tag_ids = [str(tag['id']) for tag in tags]
+        logging.info(f"GET /api/bills - Tag IDs: {tag_ids}, Operator: {tag_operator}")
+        if tag_ids:
+            if tag_operator == 'is':
+                # Must have exactly these tags
+                where_clauses.append("""
+                    EXISTS (
+                        SELECT 1 FROM bill_tags bt 
+                        WHERE bt.bill_id = b.id AND bt.tag_id = %s
+                    )
+                """)
+                params.append(int(tag_ids[0]))  # 'is' operator only uses first tag
+            elif tag_operator == 'is_not':
+                # Must not have this tag
+                where_clauses.append("""
+                    NOT EXISTS (
+                        SELECT 1 FROM bill_tags bt 
+                        WHERE bt.bill_id = b.id AND bt.tag_id = %s
+                    )
+                """)
+                params.append(int(tag_ids[0]))  # 'is_not' operator only uses first tag
+            elif tag_operator == 'is_one_of':
+                # Must have at least one of these tags
+                where_clauses.append("""
+                    EXISTS (
+                        SELECT 1 FROM bill_tags bt 
+                        WHERE bt.bill_id = b.id AND bt.tag_id = ANY(%s)
+                    )
+                """)
+                params.append([int(id) for id in tag_ids])
+            elif tag_operator == 'is_not_one_of':
+                # Must not have any of these tags
+                where_clauses.append("""
+                    NOT EXISTS (
+                        SELECT 1 FROM bill_tags bt 
+                        WHERE bt.bill_id = b.id AND bt.tag_id = ANY(%s)
+                    )
+                """)
+                params.append([int(id) for id in tag_ids])
+    
+    if congress:
+        where_clauses.append("b.congress = %s")
+        params.append(congress)
+
+    # Base WHERE clause for both count and data queries
+    where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    logging.info(f"GET /api/bills - WHERE clause: {where_sql}")
+    logging.info(f"GET /api/bills - Parameters: {params}")
+
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("""
+
+    # Get total count
+    count_query = """
+        SELECT COUNT(*) 
+        FROM bills b
+        LEFT JOIN members m ON b.sponsor_id = m.bioguide_id
+    """ + where_sql
+
+    cur.execute(count_query, params)
+    total_count = cur.fetchone()['count']
+
+    # Get paginated data
+    data_query = """
         SELECT b.id, b.bill_number, b.bill_title, b.sponsor_id, 
                m.full_name as sponsor_name, m.party as sponsor_party,
                b.introduced_date, b.status, b.tags, b.congress,
                b.latest_action, b.latest_action_date
         FROM bills b
         LEFT JOIN members m ON b.sponsor_id = m.bioguide_id
+    """ + where_sql + """
         ORDER BY b.introduced_date DESC
-    """)
+        LIMIT %s OFFSET %s
+    """
+
+    # Add pagination parameters
+    cur.execute(data_query, params + [per_page, offset])
     bills = cur.fetchall()
+    
     cur.close()
     conn.close()
-    return jsonify(bills)
+
+    result = {
+        'bills': bills,
+        'total': total_count,
+        'page': page,
+        'per_page': per_page,
+        'total_pages': (total_count + per_page - 1) // per_page
+    }
+    logging.info(f"GET /api/bills - Found {total_count} bills")
+    return jsonify(result)
 
 @app.route('/api/bills/<bill_number>', methods=['GET'])
 def get_bill_details(bill_number):

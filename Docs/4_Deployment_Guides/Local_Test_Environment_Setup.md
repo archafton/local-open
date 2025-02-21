@@ -1,4 +1,5 @@
 # Local Test Environment Setup Guide for Project Tacitus
+# arch says THIS IS NOT APPLICABLE.....YET 
 
 ## Prerequisites
 
@@ -26,7 +27,7 @@ Status: COMPLETE
 ### 2. Clone the Repository and Create Local Test Directory
 
 ```bash
-git clone https://github.com/archafton/open-gov.git project_tacitus_local_test
+git clone https://github.com/archafton/local-open.git project_tacitus_local_test
 cd project_tacitus_local_test
 ```
 
