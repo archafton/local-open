@@ -210,7 +210,7 @@ The tag system is currently implemented with the following tables:
    - Updates parent state with selected tags and operator
    - Resets to page 1 when filter changes
 
-## How to Start Phase 2
+## Phase 2
 To begin implementing the advanced tag filter:
 1. Create new AdvancedTagFilter.js component
 2. Add "Advanced" toggle button to BillsFilters.js

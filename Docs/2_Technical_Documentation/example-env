@@ -1,6 +1,6 @@
 DATABASE_URL=postgresql://localhost/project_tacitus_test
-CONGRESSGOV_API_KEY=[INSERTKEY]
-ANTHROPIC_API_KEY=[INSERTKEY]
+CONGRESSGOV_API_KEY=your_key
+ANTHROPIC_API_KEY=your_key
 CONGRESSGOV_BILLS_LIST_ENDPOINT=https://api.congress.gov/v3/bill
 CONGRESSGOV_BILL_DETAIL_ENDPOINT=https://api.congress.gov/v3/bill/{congress}/{billType}/{billNumber}
 CONGRESSGOV_BILL_SUMMARY_ENDPOINT=https://api.congress.gov/v3/bill/{congress}/{billType}/{billNumber}/summaries

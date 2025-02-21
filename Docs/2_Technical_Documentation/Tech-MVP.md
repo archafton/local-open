@@ -1,35 +1,85 @@
 # Technical Overview
 
 Project Tacitus is a comprehensive platform designed to provide users with access to legislative data, voting records, and representative information. The platform aims to promote transparency, accountability, and civic engagement by empowering users to explore, analyze, and track legislative activities and the actions of their elected representatives.
-The technical architecture of Project Tacitus follows a modern, scalable, and serverless approach, leveraging various cloud services and technologies. The core components of the system include:
-## Data Sources:
-Project Tacitus integrates with multiple data sources, including government APIs (e.g., ProPublica Congress API), legislative databases, and third-party platforms, to gather comprehensive legislative data, voting records, and representative information.
-The data is collected through API calls, web scraping techniques, and direct database connections, ensuring the platform has access to up-to-date and accurate information.
-Data Processing and Storage:
-The collected data undergoes an ETL (Extract, Transform, Load) process, where it is extracted from the source systems, transformed into a standardized format, and loaded into a centralized data storage.
-Amazon S3 is used as a scalable and durable storage solution for raw data files, processed datasets, and static assets.
-PostgreSQL, a robust relational database, is employed to store structured data, such as legislative records, representative profiles, and user information. The database is designed with a normalized schema to ensure data integrity and efficient querying.
-Elasticsearch, a distributed search and analytics engine, is utilized to enable fast and flexible full-text search capabilities across the legislative dataset.
-## Backend Services:
-The backend of Project Tacitus is built using serverless computing, specifically AWS Lambda functions, which allow for scalable and cost-effective execution of code without the need to manage infrastructure.
-Lambda functions are responsible for various tasks, including data processing, API handling, and integration with external services.
-AWS API Gateway is used to create, publish, and manage APIs that expose the backend functionality to the frontend and other consumers. It acts as the entry point for incoming requests and routes them to the appropriate Lambda functions.
-To improve performance and reduce the load on the backend services, a caching layer is implemented using Redis. Frequently accessed data is stored in Redis, allowing for faster retrieval and reducing the need for repeated database queries.
-## Frontend and User Interface:
-The frontend of Project Tacitus is developed using modern web technologies, ReactJS for the web application and React Native for mobile apps (iOS and Android).
-The frontend communicates with the backend APIs through HTTP requests, retrieving data and sending user interactions.
-The user interface is designed to be intuitive, responsive, and visually appealing, providing users with a seamless experience for exploring legislative data, tracking representatives, and accessing analytical tools.
-Data visualization libraries, such as D3.js or Chart.js, are employed to present complex legislative information in an easily understandable and interactive manner.
-## Security and Authentication:
-Project Tacitus implements robust security measures to protect user data and ensure secure access to the platform.
-User authentication is handled using industry-standard protocols, such as OAuth 2.0 or JWT (JSON Web Tokens), allowing users to securely log in and access their personalized profiles and preferences.
-Role-based access control (RBAC) is implemented to manage user permissions and restrict access to sensitive data or administrative functions based on user roles and privileges.
-Secure communication protocols, such as HTTPS, are used to encrypt data in transit, protecting it from unauthorized interception.
-## Deployment and Scalability:
-The entire infrastructure of Project Tacitus is provisioned and managed using infrastructure as code (IaC) tools, such as Terraform, enabling version control, reproducibility, and automated deployment.
-The serverless architecture allows for automatic scaling based on demand, ensuring the platform can handle variable workloads and accommodate growth without manual intervention.
-Continuous integration and continuous deployment (CI/CD) pipelines are set up to automate the build, testing, and deployment processes, enabling rapid iteration and reducing the risk of human errors.
-Monitoring and logging solutions, such as Amazon CloudWatch and Elasticsearch, are employed to track system performance, identify potential issues, and facilitate troubleshooting.
+
+## Development Phases
+
+### Phase 1: Local Development (Current)
+- Flask-based API with local PostgreSQL database
+- React frontend with implemented features including dark mode
+- Anthropic API integration for bill summarization
+- Basic data processing pipeline
+
+### Phase 2: AWS Migration (Planned)
+The technical architecture will transition to a modern, scalable, and serverless approach, leveraging various cloud services and technologies. The core components will include:
+
+## Data Sources
+Currently:
+- Congress.gov API integration for legislative data (bills, representatives)
+- Data collection through API calls
+- Local storage for raw data and processed information
+
+Planned:
+- Integration with additional government APIs and legislative databases
+- Web scraping capabilities for comprehensive data collection
+- Direct database connections to third-party platforms
+## Data Processing and Storage
+Currently:
+- Local ETL process for data transformation
+- PostgreSQL database for structured data storage
+- Local file system for raw data storage
+- Normalized database schema for data integrity
+
+Planned AWS Implementation:
+- Amazon S3 for raw data files and static assets
+- Enhanced PostgreSQL deployment for structured data
+- Elasticsearch for full-text search capabilities
+## Backend Services
+Currently:
+- Flask-based API server
+- Python functions for data processing
+- Direct API integrations
+- Basic caching implementation
+
+Planned AWS Implementation:
+- AWS Lambda functions for serverless computing
+- API Gateway for request management
+- Redis caching layer
+- Enhanced security and scalability features
+## Frontend and User Interface
+Currently Implemented:
+- React web application
+- Dark mode support
+- Responsive design
+- Basic data visualization
+- HTTP API communication
+
+Planned Enhancements:
+- React Native mobile apps
+- Advanced data visualization with D3.js/Chart.js
+- Enhanced user interaction features
+- Real-time updates
+## Security and Authentication
+Currently:
+- Basic HTTPS implementation
+- Input validation and sanitization
+
+Planned Implementation:
+- Google Sign-In integration
+- OAuth 2.0/JWT authentication
+- Role-based access control (RBAC)
+- Enhanced security measures
+## Deployment and Scalability
+Current Development Environment:
+- Local development setup
+- Manual deployment processes
+- Basic logging and monitoring
+
+Planned AWS Infrastructure:
+- Terraform for infrastructure as code
+- Serverless architecture for automatic scaling
+- CI/CD pipelines for automated deployment
+- CloudWatch and Elasticsearch for monitoring
 
 By leveraging this technical architecture, Project Tacitus aims to provide a reliable, scalable, and user-friendly platform for accessing and analyzing legislative data. The combination of serverless computing, efficient data storage, powerful search capabilities, and intuitive user interfaces enables users to gain valuable insights into the legislative process and the actions of their elected representatives.
 
@@ -80,4 +130,5 @@ Implement essential security measures to protect user data and ensure secure com
 Develop privacy policies and terms of service to inform users about data handling practices.
 ## Documentation and Support:
 Provide comprehensive documentation and support resources to help users navigate the platform effectively and troubleshoot any issues they encounter. This could include FAQs, user guides, and knowledge base articles.
+
 By focusing on these core features and functionalities, the MVP for Project Tacitus can deliver immediate value to users while laying the foundation for future enhancements and iterations based on user feedback and market demand.

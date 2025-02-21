@@ -12,7 +12,7 @@ The system begins by identifying bills requiring processing:
 - The most recent text version URL is stored in bill_text_link
 - If the bill has become law, the corresponding law text URL is stored in bill_law_link
 
-### Stage 2: XML Processing
+### Stage 2: XML Processing (xml contains formatting, it might be best to use html)
 Once text URLs are obtained:
 - XML content is downloaded from the Congress.gov endpoint
 - Content is validated for structural integrity

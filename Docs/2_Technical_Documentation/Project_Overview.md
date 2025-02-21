@@ -1,7 +1,7 @@
 # Project Tacitus: Technical Overview
 
 ## Project Description
-Project Tacitus is a full-stack web application designed to fetch, store, analyze, and visualize legislative data from Congress.gov. The system provides detailed information about bills, congressional members, voting records, and legislative activities.
+Project Tacitus is a full-stack web application designed to fetch, store, analyze, and visualize legislative data from Congress.gov and other sources. The system provides detailed information about bills, congressional members, voting records, legislative activities, campaign finances, lobbying activity, and government spending activity.
 
 ## Technical Stack
 
@@ -120,29 +120,38 @@ Project Tacitus is a full-stack web application designed to fetch, store, analyz
 
 ## Development Status
 
-### Completed Features
+### Current Features (Local Development)
 - Database schema implementation
 - Data fetching infrastructure
 - Basic API endpoints
-- Representatives view
-- Filtering system
+- Representatives view with filtering
 - Dark mode support
+- Bill text analysis with Anthropic API
+- Tag system implementation
 
-### In Progress
-- Enhanced bill analysis
+### In Development
+- Enhanced bill analysis capabilities
 - Additional data visualizations
-- Advanced search capabilities
-- User authentication system
+- Advanced search functionality
+- Multi-select tag filtering
+
+### Upcoming Features (AWS Migration)
+- User authentication with Google Sign-In
+- Advanced analytics dashboard
+- Enhanced security measures
+- Serverless architecture deployment
 
 ## Future Enhancements
 
-### Planned Features
+### AWS Implementation Features
 1. **Analytics Dashboard**
    - Voting pattern analysis
    - Bill success rate tracking
    - Member participation metrics
+   - Real-time data updates
 
 2. **Enhanced Search**
+   - Elasticsearch integration
    - Full-text bill search
    - Advanced filtering options
    - Contextual search results
@@ -153,8 +162,8 @@ Project Tacitus is a full-stack web application designed to fetch, store, analyz
    - Email notifications
    - Personal bill tracking
 
-4. **Data Analysis**
-   - Machine learning integration
+4. **Advanced Analysis**
+   - Multi-provider AI integration
    - Predictive analytics
    - Trend analysis
    - Correlation studies
