@@ -26,48 +26,17 @@ const Modal = ({ title, content, onClose }) => (
   </div>
 );
 
-const BillsTable = ({ data }) => {
+const BillsTable = ({ data, sortConfig, onSort }) => {
   const navigate = useNavigate();
   const [selectedTitle, setSelectedTitle] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
-  const [sortConfig, setSortConfig] = useState({
-    key: 'introduced_date',
-    direction: 'desc'
-  });
-
-  const sortedData = React.useMemo(() => {
-    const sortedArray = [...data];
-    sortedArray.sort((a, b) => {
-      if (!a[sortConfig.key] && !b[sortConfig.key]) return 0;
-      if (!a[sortConfig.key]) return 1;
-      if (!b[sortConfig.key]) return -1;
-
-      let comparison = 0;
-      if (sortConfig.key === 'introduced_date') {
-        comparison = new Date(a[sortConfig.key]) - new Date(b[sortConfig.key]);
-      } else if (sortConfig.key === 'congress') {
-        comparison = Number(a[sortConfig.key]) - Number(b[sortConfig.key]);
-      } else if (sortConfig.key === 'tags') {
-        comparison = (a[sortConfig.key]?.[0] || '').localeCompare(b[sortConfig.key]?.[0] || '');
-      } else if (sortConfig.key === 'sponsor') {
-        comparison = (a.sponsor_name || '').localeCompare(b.sponsor_name || '');
-      } else {
-        comparison = String(a[sortConfig.key]).localeCompare(String(b[sortConfig.key]));
-      }
-
-      return sortConfig.direction === 'asc' ? comparison : -comparison;
-    });
-    return sortedArray;
-  }, [data, sortConfig]);
 
   const requestSort = (key) => {
-    setSortConfig((prevConfig) => ({
-      key,
-      direction: 
-        prevConfig.key === key && prevConfig.direction === 'asc' 
-          ? 'desc' 
-          : 'asc',
-    }));
+    const direction = 
+      sortConfig.key === key && sortConfig.direction === 'asc' 
+        ? 'desc' 
+        : 'asc';
+    onSort(key, direction);
   };
 
   const getSortIcon = (columnKey) => {
@@ -159,7 +128,7 @@ const BillsTable = ({ data }) => {
           </tr>
         </thead>
         <tbody className="text-gray-600 dark:text-gray-200 text-sm">
-          {sortedData.map((bill, index) => (
+          {data.map((bill, index) => (
             <tr 
               key={bill.id || index} 
               className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"

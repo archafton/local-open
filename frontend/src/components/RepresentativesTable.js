@@ -1,40 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const RepresentativesTable = ({ data }) => {
+const RepresentativesTable = ({ data, sortConfig, onSort }) => {
   const navigate = useNavigate();
-  const [sortConfig, setSortConfig] = useState({
-    key: 'full_name',
-    direction: 'asc'
-  });
-
-  const sortedData = React.useMemo(() => {
-    const sortedArray = [...data];
-    sortedArray.sort((a, b) => {
-      if (!a[sortConfig.key] && !b[sortConfig.key]) return 0;
-      if (!a[sortConfig.key]) return 1;
-      if (!b[sortConfig.key]) return -1;
-
-      let comparison = 0;
-      if (['total_votes', 'missed_votes', 'total_present'].includes(sortConfig.key)) {
-        comparison = Number(a[sortConfig.key]) - Number(b[sortConfig.key]);
-      } else {
-        comparison = String(a[sortConfig.key]).localeCompare(String(b[sortConfig.key]));
-      }
-
-      return sortConfig.direction === 'asc' ? comparison : -comparison;
-    });
-    return sortedArray;
-  }, [data, sortConfig]);
 
   const requestSort = (key) => {
-    setSortConfig((prevConfig) => ({
-      key,
-      direction: 
-        prevConfig.key === key && prevConfig.direction === 'asc' 
-          ? 'desc' 
-          : 'asc',
-    }));
+    const direction = 
+      sortConfig.key === key && sortConfig.direction === 'asc' 
+        ? 'desc' 
+        : 'asc';
+    onSort(key, direction);
   };
 
   const getSortIcon = (columnKey) => {
@@ -110,7 +85,7 @@ const RepresentativesTable = ({ data }) => {
           </tr>
         </thead>
         <tbody className="text-gray-600 dark:text-gray-200 text-sm">
-          {sortedData.map((rep, index) => (
+          {data.map((rep, index) => (
             <tr 
               key={rep.bioguide_id || index} 
               className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"

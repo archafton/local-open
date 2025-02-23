@@ -10,6 +10,10 @@ const Bills = () => {
   const [totalBills, setTotalBills] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page')) || 1);
+  const [sortConfig, setSortConfig] = useState({
+    key: searchParams.get('sort_key') || 'introduced_date',
+    direction: searchParams.get('sort_direction') || 'desc'
+  });
   const itemsPerPage = 100;
 
   // Initialize filters from URL params
@@ -38,7 +42,7 @@ const Bills = () => {
     };
   });
 
-  // Update URL when filters or page changes
+  // Update URL when filters, page, or sort changes
   useEffect(() => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -53,8 +57,10 @@ const Bills = () => {
     if (currentPage > 1) {
       params.set('page', currentPage.toString());
     }
+    params.set('sort_key', sortConfig.key);
+    params.set('sort_direction', sortConfig.direction);
     setSearchParams(params);
-  }, [filters, currentPage, setSearchParams]);
+  }, [filters, currentPage, sortConfig, setSearchParams]);
 
   useEffect(() => {
     const fetchBills = async () => {
@@ -75,6 +81,8 @@ const Bills = () => {
         });
         queryParams.append('page', currentPage.toString());
         queryParams.append('per_page', itemsPerPage.toString());
+        queryParams.append('sort_key', sortConfig.key);
+        queryParams.append('sort_direction', sortConfig.direction);
 
         const response = await fetch(`http://localhost:5001/api/bills?${queryParams}`);
         if (!response.ok) {
@@ -96,7 +104,7 @@ const Bills = () => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [filters, currentPage]); // Re-fetch when filters or page changes
+  }, [filters, currentPage, sortConfig]); // Re-fetch when filters, page, or sort changes
 
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
@@ -136,8 +144,13 @@ const Bills = () => {
         ) : (
           <>
             <BillsTable 
-              data={bills} 
+              data={bills}
               filters={filters}
+              sortConfig={sortConfig}
+              onSort={(key, direction) => {
+                setSortConfig({ key, direction });
+                setCurrentPage(1); // Reset to first page when sort changes
+              }}
             />
             {totalBills > itemsPerPage && (
               <div className="flex justify-center items-center p-4 border-t border-gray-200 dark:border-gray-700">
