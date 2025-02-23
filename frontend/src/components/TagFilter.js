@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const OPERATORS = [
   { value: 'is', label: 'is' },
@@ -12,13 +12,33 @@ const TagFilter = ({ value, onChange }) => {
   const [loading, setLoading] = useState(true);
   // Initialize state from props
   const [selectedOperator, setSelectedOperator] = useState(value?.operator || 'is');
-  const [selectedTags, setSelectedTags] = useState(value?.tags || []);
+  const [selectedTags, setSelectedTags] = useState(value?.tags || []); 
+  const [isOpen, setIsOpen] = useState(false);
+  const [tempSelectedTags, setTempSelectedTags] = useState([]);
+  const dropdownRef = useRef(null);
 
   // Update state when props change
   useEffect(() => {
     setSelectedOperator(value?.operator || 'is');
     setSelectedTags(value?.tags || []);
+    setTempSelectedTags(value?.tags || []);
   }, [value]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        handleDone();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, tempSelectedTags]);
 
   // Fetch available tags from the API
   useEffect(() => {
@@ -40,48 +60,61 @@ const TagFilter = ({ value, onChange }) => {
     fetchTags();
   }, []);
 
-  // Handle direct changes instead of using useEffect
   const handleOperatorChange = (e) => {
     const newOperator = e.target.value;
     setSelectedOperator(newOperator);
+    
     // Clear tags if switching to single-select operator
     const newTags = (newOperator === 'is' || newOperator === 'is_not') && selectedTags.length > 1 
       ? [selectedTags[0]] 
       : selectedTags;
+      
     setSelectedTags(newTags);
+    setTempSelectedTags(newTags);
     onChange({
       operator: newOperator,
       tags: newTags
     });
   };
 
-  const handleTagSelect = (tag) => {
-    let newTags;
+  const handleTagToggle = (tag) => {
+    let newTempTags;
     if (selectedOperator === 'is' || selectedOperator === 'is_not') {
-      // Single tag selection for 'is' and 'is_not' operators
-      newTags = [tag];
+      // Single tag selection
+      newTempTags = [tag];
     } else {
-      // Multi-tag selection for 'is_one_of' and 'is_not_one_of' operators
-      if (!selectedTags.find(t => t.id === tag.id)) {
-        newTags = [...selectedTags, tag];
+      // Multi-tag selection
+      const exists = tempSelectedTags.find(t => t.id === tag.id);
+      if (exists) {
+        newTempTags = tempSelectedTags.filter(t => t.id !== tag.id);
       } else {
-        return; // Tag already selected
+        newTempTags = [...tempSelectedTags, tag];
       }
     }
-    setSelectedTags(newTags);
+    setTempSelectedTags(newTempTags);
+  };
+
+  const handleDone = () => {
+    setIsOpen(false);
+    setSelectedTags(tempSelectedTags);
     onChange({
       operator: selectedOperator,
-      tags: newTags
+      tags: tempSelectedTags
     });
   };
 
   const handleTagRemove = (tagId) => {
     const newTags = selectedTags.filter(tag => tag.id !== tagId);
     setSelectedTags(newTags);
+    setTempSelectedTags(newTags);
     onChange({
       operator: selectedOperator,
       tags: newTags
     });
+  };
+
+  const isTagSelected = (tagId) => {
+    return tempSelectedTags.some(tag => tag.id === tagId);
   };
 
 
@@ -91,7 +124,7 @@ const TagFilter = ({ value, onChange }) => {
 
   return (
     <div className="flex flex-col space-y-2">
-      <div className="flex space-x-2">
+      <div className="flex space-x-2" ref={dropdownRef}>
         {/* Operator selector */}
         <select
           value={selectedOperator}
@@ -105,22 +138,44 @@ const TagFilter = ({ value, onChange }) => {
           ))}
         </select>
 
-        {/* Tag selector */}
-        <select
-          value=""
-          onChange={(e) => {
-            const tag = tags.find(t => t.id === parseInt(e.target.value));
-            if (tag) handleTagSelect(tag);
-          }}
-          className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white flex-grow"
-        >
-          <option value="">Select a tag...</option>
-          {tags.map(tag => (
-            <option key={tag.id} value={tag.id}>
-              {tag.name} ({tag.type})
-            </option>
-          ))}
-        </select>
+        {/* Custom tag dropdown */}
+        <div className="relative flex-grow">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white text-left"
+          >
+            Select tags...
+          </button>
+
+          {isOpen && (
+            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border rounded shadow-lg max-h-60 overflow-y-auto">
+              <div className="p-2 space-y-2">
+                {tags.map(tag => (
+                  <div key={tag.id} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`tag-${tag.id}`}
+                      checked={isTagSelected(tag.id)}
+                      onChange={() => handleTagToggle(tag)}
+                      className="rounded dark:bg-gray-700"
+                    />
+                    <label htmlFor={`tag-${tag.id}`} className="dark:text-white">
+                      {tag.name} ({tag.type})
+                    </label>
+                  </div>
+                ))}
+                <div className="pt-2 border-t">
+                  <button
+                    onClick={handleDone}
+                    className="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Selected tags */}

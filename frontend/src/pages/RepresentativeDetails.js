@@ -266,28 +266,169 @@ const RepresentativeDetails = () => {
 
           {/* Sponsored Bills Panel */}
           {activeTab === 2 && (
+            <div className="space-y-6">
+              {/* Sponsored Bills Section */}
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold mb-4">Sponsored and Co-sponsored Bills</h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Sponsored Bills</h3>
+                  <div className="flex gap-2">
+                    <select 
+                      className="px-3 py-1 border rounded dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                      onChange={(e) => {
+                        const bills = [...representative.sponsored_bills];
+                        switch(e.target.value) {
+                          case 'date-new':
+                            bills.sort((a, b) => new Date(b.introduced_date) - new Date(a.introduced_date));
+                            break;
+                          case 'date-old':
+                            bills.sort((a, b) => new Date(a.introduced_date) - new Date(b.introduced_date));
+                            break;
+                          case 'alpha':
+                            bills.sort((a, b) => a.bill_number.localeCompare(b.bill_number));
+                            break;
+                          default:
+                            break;
+                        }
+                        setRepresentative(prev => ({...prev, sponsored_bills: bills}));
+                      }}
+                    >
+                      <option value="date-new">Newest First</option>
+                      <option value="date-old">Oldest First</option>
+                      <option value="alpha">Bill Number</option>
+                    </select>
+                  </div>
+                </div>
+                
                 {representative.sponsored_bills?.length > 0 ? (
-                  <ul className="space-y-2">
+                  <div className="space-y-4">
                     {representative.sponsored_bills.map((bill, index) => (
-                      <li key={index}>
-                        <a
-                          href={`/bills/${bill.bill_number}`}
-                          className="text-blue-600 hover:underline"
-                        >
-                          {bill.bill_number}
-                        </a>
-                        <span className="text-gray-600 dark:text-gray-300 ml-2">
-                          - {bill.bill_title}
-                        </span>
-                      </li>
+                      <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <a
+                              href={`/bills/${bill.bill_number}`}
+                              className="text-lg font-medium text-blue-600 hover:underline"
+                            >
+                              {bill.bill_number}
+                            </a>
+                            <div className="mt-1 text-gray-600 dark:text-gray-300">
+                              {bill.bill_title}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              Introduced: {new Date(bill.introduced_date).toLocaleDateString()}
+                            </div>
+                            {bill.status && (
+                              <div className="mt-1">
+                                <span className="px-2 py-1 text-sm rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                  {bill.status}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 ) : (
-                  <p className="text-gray-600 dark:text-gray-300">No bills found</p>
+                  <p className="text-gray-600 dark:text-gray-300">No sponsored bills found</p>
                 )}
               </div>
+
+              {/* Cosponsored Bills Section */}
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Cosponsored Bills</h3>
+                  <div className="flex gap-2">
+                    <select 
+                      className="px-3 py-1 border rounded dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                      onChange={(e) => {
+                        const bills = [...representative.cosponsored_bills];
+                        switch(e.target.value) {
+                          case 'date-new':
+                            bills.sort((a, b) => new Date(b.introduced_date) - new Date(a.introduced_date));
+                            break;
+                          case 'date-old':
+                            bills.sort((a, b) => new Date(a.introduced_date) - new Date(b.introduced_date));
+                            break;
+                          case 'alpha':
+                            bills.sort((a, b) => a.bill_number.localeCompare(b.bill_number));
+                            break;
+                          default:
+                            break;
+                        }
+                        setRepresentative(prev => ({...prev, cosponsored_bills: bills}));
+                      }}
+                    >
+                      <option value="date-new">Newest First</option>
+                      <option value="date-old">Oldest First</option>
+                      <option value="alpha">Bill Number</option>
+                    </select>
+                  </div>
+                </div>
+                
+                {representative.cosponsored_bills?.length > 0 ? (
+                  <div className="space-y-4">
+                    {representative.cosponsored_bills.map((bill, index) => (
+                      <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-grow">
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={`/bills/${bill.bill_number}`}
+                                className="text-lg font-medium text-blue-600 hover:underline"
+                              >
+                                {bill.bill_number}
+                              </a>
+                              {bill.status && (
+                                <span className="px-2 py-1 text-sm rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                  {bill.status}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-gray-600 dark:text-gray-300">
+                              {bill.bill_title}
+                            </div>
+                            <div className="mt-2 text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">
+                                Sponsored by: {bill.sponsor_name} ({bill.sponsor_party})
+                              </span>
+                              <span className="mx-2">•</span>
+                              <span className="text-gray-500 dark:text-gray-400">
+                                Introduced: {new Date(bill.introduced_date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {bill.subjects && bill.subjects.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {bill.subjects.map((subject, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                                  >
+                                    {subject}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {bill.latest_action && (
+                              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                Latest Action: {bill.latest_action}
+                                {bill.latest_action_date && (
+                                  <span> ({new Date(bill.latest_action_date).toLocaleDateString()})</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-600 dark:text-gray-300">No cosponsored bills found</p>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>

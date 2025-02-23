@@ -2,23 +2,7 @@
 
 ### Next Steps (in priority order):
 
-### 1. Immediate Technical Improvements: 
-
-**Owner:** JV
-**Working Doc:** [Tag_System_Tracker.md](2_Technical_Documentation/Tag_System_Tracker.md)
-
-- Implement multi-select functionality in the tag dropdown
-    - Add checkboxes for tag selection
-    - Implement "Done" button in dropdown modal
-    - Add click-outside handling for selection confirmation
-    - Update state management to handle multiple selections
-- Fix Bills Table sorting issues
-    - Modify sorting logic to work across all pages, not just current page
-    - Fix SPONSOR column sorting bug with null/N/A values
-    - Implement server-side sorting for large datasets
-    - Add proper handling for empty/null sponsor cases
-
-### 2. Tag System Enhancements:
+### 1. Tag System Enhancements:
 
 **Owner:** JV
 **Working Doc:** [Tag_System_Tracker.md](2_Technical_Documentation/Tag_System_Tracker.md)

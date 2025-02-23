@@ -125,13 +125,37 @@ def get_representatives():
     cur.execute(count_query, params)
     total_count = cur.fetchone()['count']
 
+    # Get sort parameters
+    sort_key = request.args.get('sort_key', 'full_name')
+    sort_direction = request.args.get('sort_direction', 'asc')
+
+    # Map frontend sort keys to SQL columns
+    sort_column_map = {
+        'full_name': 'full_name',
+        'chamber': 'chamber',
+        'party': 'party',
+        'leadership_role': 'COALESCE(leadership_role, \'\')',  # Handle NULL values
+        'state': 'state',
+        'district': 'COALESCE(district, \'\')',  # Handle NULL values
+        'total_votes': 'COALESCE(total_votes, 0)',  # Handle NULL values
+        'missed_votes': 'COALESCE(missed_votes, 0)',  # Handle NULL values
+        'total_present': 'COALESCE(total_present, 0)'  # Handle NULL values
+    }
+
+    # Get the SQL column name, defaulting to full_name if invalid key
+    sort_column = sort_column_map.get(sort_key, 'full_name')
+    
+    # Validate sort direction
+    if sort_direction not in ['asc', 'desc']:
+        sort_direction = 'asc'
+
     # Get paginated data
     data_query = """
         SELECT chamber, full_name, party, leadership_role, state, district, 
                total_votes, missed_votes, total_present, bioguide_id 
         FROM members
-    """ + where_sql + """
-        ORDER BY full_name ASC
+    """ + where_sql + f"""
+        ORDER BY {sort_column} {sort_direction.upper()} NULLS LAST
         LIMIT %s OFFSET %s
     """
 
@@ -210,23 +234,39 @@ def get_representative_details(bioguide_id):
         """, (bioguide_id,))
         representative['party_history'] = cur.fetchall()
         
-        # Get sponsored bills
+        # Get sponsored bills with more details
         cur.execute("""
-            SELECT b.bill_number, b.bill_title, b.introduced_date
-            FROM sponsored_legislation sl
-            JOIN bills b ON sl.bill_id = b.id
-            JOIN members m ON sl.member_id = m.id
-            WHERE m.bioguide_id = %s
+            SELECT b.bill_number, b.bill_title, b.introduced_date, 
+                   b.status, b.normalized_status, b.congress,
+                   b.latest_action, b.latest_action_date,
+                   array_agg(DISTINCT s.subject_name) FILTER (WHERE s.subject_name IS NOT NULL) as subjects
+            FROM bills b
+            LEFT JOIN bill_subjects s ON b.bill_number = s.bill_number
+            WHERE b.sponsor_id = %s
+            GROUP BY b.bill_number, b.bill_title, b.introduced_date, 
+                     b.status, b.normalized_status, b.congress,
+                     b.latest_action, b.latest_action_date
             ORDER BY b.introduced_date DESC
         """, (bioguide_id,))
         representative['sponsored_bills'] = cur.fetchall()
         
-        # Get cosponsored bills
+        # Get cosponsored bills with more details
         cur.execute("""
-            SELECT b.bill_number, b.bill_title
-            FROM bill_cosponsors bc
-            JOIN bills b ON bc.bill_number = b.bill_number
+            SELECT b.bill_number, b.bill_title, b.introduced_date,
+                   b.status, b.normalized_status, b.congress,
+                   b.latest_action, b.latest_action_date,
+                   array_agg(DISTINCT s.subject_name) FILTER (WHERE s.subject_name IS NOT NULL) as subjects,
+                   m_sponsor.full_name as sponsor_name,
+                   m_sponsor.party as sponsor_party
+            FROM bills b
+            JOIN bill_cosponsors bc ON b.bill_number = bc.bill_number
+            LEFT JOIN bill_subjects s ON b.bill_number = s.bill_number
+            LEFT JOIN members m_sponsor ON b.sponsor_id = m_sponsor.bioguide_id
             WHERE bc.cosponsor_id = %s
+            GROUP BY b.bill_number, b.bill_title, b.introduced_date,
+                     b.status, b.normalized_status, b.congress,
+                     b.latest_action, b.latest_action_date,
+                     m_sponsor.full_name, m_sponsor.party
             ORDER BY b.introduced_date DESC
         """, (bioguide_id,))
         representative['cosponsored_bills'] = cur.fetchall()
@@ -431,6 +471,28 @@ def get_bills():
     total_count = cur.fetchone()['count']
 
     # Get paginated data
+    # Get sort parameters
+    sort_key = request.args.get('sort_key', 'introduced_date')
+    sort_direction = request.args.get('sort_direction', 'desc')
+
+    # Map frontend sort keys to SQL columns
+    sort_column_map = {
+        'bill_number': 'b.bill_number',
+        'bill_title': 'b.bill_title',
+        'sponsor': 'COALESCE(m.full_name, \'\')',  # Handle NULL sponsors
+        'introduced_date': 'b.introduced_date',
+        'status': 'b.status',
+        'tags': 'b.tags',
+        'congress': 'b.congress'
+    }
+
+    # Get the SQL column name, defaulting to introduced_date if invalid key
+    sort_column = sort_column_map.get(sort_key, 'b.introduced_date')
+    
+    # Validate sort direction
+    if sort_direction not in ['asc', 'desc']:
+        sort_direction = 'desc'
+
     data_query = """
         SELECT b.id, b.bill_number, b.bill_title, b.sponsor_id, 
                m.full_name as sponsor_name, m.party as sponsor_party,
@@ -438,8 +500,8 @@ def get_bills():
                b.latest_action, b.latest_action_date
         FROM bills b
         LEFT JOIN members m ON b.sponsor_id = m.bioguide_id
-    """ + where_sql + """
-        ORDER BY b.introduced_date DESC
+    """ + where_sql + f"""
+        ORDER BY {sort_column} {sort_direction.upper()} NULLS LAST
         LIMIT %s OFFSET %s
     """
 
