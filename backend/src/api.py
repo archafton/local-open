@@ -19,8 +19,15 @@ logging.basicConfig(
 logging.info("API server starting up")
 
 app = Flask(__name__)
-# Enable CORS for all domains on all routes
-CORS(app)
+# Enable CORS with specific configuration
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3001"}}, supports_credentials=True)
+
+@app.errorhandler(Exception)
+def handle_error(error):
+    logging.error(f"Error: {str(error)}")
+    response = jsonify({'error': str(error)})
+    response.status_code = 500
+    return response
 
 # Database connection string
 DB_CONNECTION_STRING = "postgresql://localhost/project_tacitus_test"
@@ -462,7 +469,7 @@ def get_bills():
 
     # Get total count
     count_query = """
-        SELECT COUNT(*) 
+        SELECT COUNT(DISTINCT b.id) 
         FROM bills b
         LEFT JOIN members m ON b.sponsor_id = m.bioguide_id
     """ + where_sql
@@ -470,7 +477,6 @@ def get_bills():
     cur.execute(count_query, params)
     total_count = cur.fetchone()['count']
 
-    # Get paginated data
     # Get sort parameters
     sort_key = request.args.get('sort_key', 'introduced_date')
     sort_direction = request.args.get('sort_direction', 'desc')
@@ -482,8 +488,8 @@ def get_bills():
         'sponsor': 'COALESCE(m.full_name, \'\')',  # Handle NULL sponsors
         'introduced_date': 'b.introduced_date',
         'status': 'b.status',
-        'tags': 'b.tags',
-        'congress': 'b.congress'
+        'congress': 'b.congress',
+        'tags': 'tags'
     }
 
     # Get the SQL column name, defaulting to introduced_date if invalid key
@@ -494,14 +500,32 @@ def get_bills():
         sort_direction = 'desc'
 
     data_query = """
-        SELECT b.id, b.bill_number, b.bill_title, b.sponsor_id, 
+        SELECT DISTINCT ON (b.id) b.id, b.bill_number, b.bill_title, b.sponsor_id, 
                m.full_name as sponsor_name, m.party as sponsor_party,
-               b.introduced_date, b.status, b.tags, b.congress,
-               b.latest_action, b.latest_action_date
+               b.introduced_date, b.status, b.congress,
+               b.latest_action, b.latest_action_date,
+               COALESCE(
+                   jsonb_agg(
+                       DISTINCT jsonb_build_object(
+                           'id', t.id,
+                           'name', t.name,
+                           'normalized_name', t.normalized_name,
+                           'type', tt.name,
+                           'type_id', tt.id
+                       )
+                   ) FILTER (WHERE t.id IS NOT NULL),
+                   '[]'::jsonb
+               ) as tags
         FROM bills b
         LEFT JOIN members m ON b.sponsor_id = m.bioguide_id
+        LEFT JOIN bill_tags bt ON b.id = bt.bill_id
+        LEFT JOIN tags t ON bt.tag_id = t.id
+        LEFT JOIN tag_types tt ON t.type_id = tt.id
     """ + where_sql + f"""
-        ORDER BY {sort_column} {sort_direction.upper()} NULLS LAST
+        GROUP BY b.id, b.bill_number, b.bill_title, b.sponsor_id, 
+                 m.full_name, m.party, b.introduced_date, b.status,
+                 b.congress, b.latest_action, b.latest_action_date
+        ORDER BY b.id, {sort_column} {sort_direction.upper()} NULLS LAST
         LIMIT %s OFFSET %s
     """
 
@@ -521,6 +545,174 @@ def get_bills():
     }
     logging.info(f"GET /api/bills - Found {total_count} bills")
     return jsonify(result)
+
+@app.route('/api/analytics/bills-by-status', methods=['GET'])
+def get_bills_by_status():
+    """Get the distribution of bills across different status categories"""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Get optional congress filter from query params
+    congress = request.args.get('congress')
+    
+    # Base query
+    query = """
+        SELECT 
+            normalized_status as status,
+            COUNT(*) as count,
+            ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+        FROM bills
+    """
+    
+    params = []
+    if congress:
+        query += " WHERE congress = %s"
+        params.append(congress)
+    
+    query += """
+        GROUP BY normalized_status
+        ORDER BY count DESC
+    """
+    
+    cur.execute(query, params)
+    results = cur.fetchall()
+    
+    cur.close()
+    conn.close()
+    
+    return jsonify(results)
+
+@app.route('/api/analytics/passage-time', methods=['GET'])
+def get_passage_time_analytics():
+    """Get analytics about bill passage time through different stages"""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Get optional congress filter from query params
+    congress = request.args.get('congress')
+    
+    # Base query conditions
+    where_clauses = ["b.introduced_date IS NOT NULL", "b.latest_action_date IS NOT NULL"]
+    params = []
+    if congress:
+        where_clauses.append("b.congress = %s")
+        params.append(congress)
+
+    where_clause = "WHERE " + " AND ".join(where_clauses)
+
+    # Calculate overall passage time statistics
+    cur.execute(f"""
+        WITH bill_timelines AS (
+            SELECT 
+                b.bill_number,
+                b.introduced_date,
+                b.latest_action_date,
+                EXTRACT(DAY FROM (b.latest_action_date::timestamp - b.introduced_date::timestamp)) as total_days,
+                b.status,
+                b.normalized_status
+            FROM bills b
+            {where_clause}
+        )
+        SELECT 
+            COUNT(*) as total_bills,
+            ROUND(AVG(total_days)) as avg_days,
+            MIN(total_days) as min_days,
+            MAX(total_days) as max_days,
+            ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_days)) as median_days
+        FROM bill_timelines
+    """, params)
+    
+    overall_stats = cur.fetchone()
+
+    # Calculate time spent in each stage
+    cur.execute(f"""
+        WITH stage_durations AS (
+            SELECT 
+                b.bill_number,
+                a1.action_date as stage_start,
+                LEAD(a1.action_date::timestamp) OVER (PARTITION BY b.bill_number ORDER BY a1.action_date) as stage_end,
+                a1.action_type as stage_name
+            FROM bills b
+            JOIN bill_actions a1 ON b.bill_number = a1.bill_number
+            {where_clause}
+        )
+        SELECT 
+            stage_name,
+            COUNT(*) as bills_in_stage,
+            ROUND(AVG(EXTRACT(DAY FROM (stage_end::timestamp - stage_start::timestamp)))) as avg_days_in_stage
+        FROM stage_durations
+        WHERE stage_end IS NOT NULL
+        GROUP BY stage_name
+        ORDER BY avg_days_in_stage DESC
+    """, params)
+    
+    stage_analysis = cur.fetchall()
+
+    # Get bills with longest processing times
+    cur.execute(f"""
+        SELECT 
+            b.bill_number,
+            b.bill_title,
+            b.introduced_date,
+            b.latest_action_date,
+            b.status,
+            EXTRACT(DAY FROM (b.latest_action_date::timestamp - b.introduced_date::timestamp)) as days_to_process
+        FROM bills b
+        {where_clause}
+        ORDER BY (b.latest_action_date - b.introduced_date) DESC
+        LIMIT 10
+    """, params)
+    
+    outliers = cur.fetchall()
+    
+    cur.close()
+    conn.close()
+    
+    return jsonify({
+        'overall_statistics': overall_stats,
+        'stage_analysis': stage_analysis,
+        'outliers': outliers
+    })
+
+@app.route('/api/analytics/bills-per-congress', methods=['GET'])
+def get_bills_per_congress():
+    """Get the distribution of bills across congressional sessions"""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    
+    cur.execute("""
+        SELECT 
+            congress,
+            CASE 
+                WHEN status LIKE 'Referred to%' OR status LIKE '%Committee%' OR status = 'Reported' THEN 'In Committee'
+                WHEN status LIKE '%passed%' OR status LIKE '%Passed%' OR status LIKE '%agreed to%' OR status LIKE '%Agreed to%' THEN 'Passed Chamber'
+                WHEN status LIKE '%conference%' OR status LIKE '%Conference%' OR status = 'Resolving Differences' THEN 'Resolving Differences'
+                WHEN status LIKE '%President%' OR status = 'To President' THEN 'To President'
+                WHEN status = 'Became Law' OR status LIKE '%enacted%' OR status LIKE '%Enacted%' THEN 'Became Law'
+                WHEN status = 'Failed' OR status LIKE '%failed%' OR status LIKE '%Failed%' OR status LIKE '%rejected%' OR status LIKE '%Rejected%' THEN 'Failed'
+                ELSE 'Other'
+            END as status,
+            COUNT(*) as bill_count
+        FROM bills
+        GROUP BY 
+            congress,
+            CASE 
+                WHEN status LIKE 'Referred to%' OR status LIKE '%Committee%' OR status = 'Reported' THEN 'In Committee'
+                WHEN status LIKE '%passed%' OR status LIKE '%Passed%' OR status LIKE '%agreed to%' OR status LIKE '%Agreed to%' THEN 'Passed Chamber'
+                WHEN status LIKE '%conference%' OR status LIKE '%Conference%' OR status = 'Resolving Differences' THEN 'Resolving Differences'
+                WHEN status LIKE '%President%' OR status = 'To President' THEN 'To President'
+                WHEN status = 'Became Law' OR status LIKE '%enacted%' OR status LIKE '%Enacted%' THEN 'Became Law'
+                WHEN status = 'Failed' OR status LIKE '%failed%' OR status LIKE '%Failed%' OR status LIKE '%rejected%' OR status LIKE '%Rejected%' THEN 'Failed'
+                ELSE 'Other'
+            END
+        ORDER BY congress DESC, bill_count DESC
+    """)
+    
+    results = cur.fetchall()
+    cur.close()
+    conn.close()
+    
+    return jsonify(results)
 
 @app.route('/api/bills/<bill_number>', methods=['GET'])
 def get_bill_details(bill_number):
@@ -547,6 +739,8 @@ def get_bill_details(bill_number):
             ORDER BY action_date
         """, (bill_number,))
         bill['actions'] = cur.fetchall()
+        
+        # Get cosponsors with member details
         
         # Get cosponsors with member details
         cur.execute("""

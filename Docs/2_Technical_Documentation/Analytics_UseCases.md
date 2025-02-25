@@ -391,3 +391,17 @@
 6. Animation speed controls
 7. Interactive timeline navigation
 8. Comparative analysis tools
+
+
+## A few additional ideas we could explore:
+
+### Comparative Velocity Analysis 
+- Comparing the speed of similar bills across different congresses or committees
+### Amendment Efficiency 
+- Tracking how amendments affect bill passage time and success rates
+### Stakeholder Response Time 
+- Analyzing how quickly different stakeholders (committees, agencies, public) respond during the legislative process
+### Crisis Response Efficiency 
+- How quickly legislation moves during crisis periods vs. normal periods
+### Cross-Reference Impact 
+- How the number of cross-references or related bills affects passage time
