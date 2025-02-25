@@ -4,6 +4,23 @@ ADD COLUMN IF NOT EXISTS profile_text TEXT,
 ADD COLUMN IF NOT EXISTS bio_directory TEXT,
 ADD COLUMN IF NOT EXISTS bio_update_date TIMESTAMP WITH TIME ZONE;
 
+-- Enhance bill_cosponsors table
+ALTER TABLE bill_cosponsors
+ADD COLUMN IF NOT EXISTS cosponsor_date DATE,
+ADD COLUMN IF NOT EXISTS cosponsor_chamber VARCHAR(50),
+ADD COLUMN IF NOT EXISTS cosponsor_district INTEGER;
+
+-- Enhance bills table
+ALTER TABLE bills
+ADD COLUMN IF NOT EXISTS bill_type VARCHAR(20),
+ADD COLUMN IF NOT EXISTS policy_area VARCHAR(100),
+ADD COLUMN IF NOT EXISTS api_url VARCHAR(255),
+ADD COLUMN IF NOT EXISTS amendment_number VARCHAR(50);
+
+-- Enhance bill_actions table
+ALTER TABLE bill_actions
+ADD COLUMN IF NOT EXISTS action_time TIME;
+
 -- Rest of schema unchanged
 -- Add new columns to members table for member details
 ALTER TABLE members
@@ -39,7 +56,6 @@ CREATE TABLE IF NOT EXISTS bills (
     sponsor_id VARCHAR(50),
     introduced_date DATE,
     summary TEXT,
-    tags TEXT[],
     congress INTEGER,
     status TEXT,
     bill_text TEXT
@@ -118,14 +134,16 @@ CREATE TABLE IF NOT EXISTS sponsored_legislation (
     id SERIAL PRIMARY KEY,
     member_id INTEGER REFERENCES members(id),
     bill_id INTEGER REFERENCES bills(id),
-    introduced_date DATE NOT NULL
+    introduced_date DATE NOT NULL,
+    UNIQUE (member_id, bill_id)
 );
 
 CREATE TABLE IF NOT EXISTS cosponsored_legislation (
     id SERIAL PRIMARY KEY,
     member_id INTEGER REFERENCES members(id),
     bill_id INTEGER REFERENCES bills(id),
-    cosponsored_date DATE NOT NULL
+    cosponsored_date DATE NOT NULL,
+    UNIQUE (member_id, bill_id)
 );
 
 -- Bill-related tables and modifications
@@ -146,6 +164,7 @@ CREATE TABLE IF NOT EXISTS bill_actions (
     action_date DATE NOT NULL,
     action_text TEXT NOT NULL,
     action_type VARCHAR(50),
+    action_time TIME,
     UNIQUE (bill_number, action_date, action_text)
 );
 
@@ -231,6 +250,18 @@ CREATE TABLE IF NOT EXISTS bill_tags (
 CREATE INDEX IF NOT EXISTS idx_tags_type_id ON tags(type_id);
 CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
 CREATE INDEX IF NOT EXISTS idx_bill_tags_tag_id ON bill_tags(tag_id);
+
+-- Create API sync status tracking table
+CREATE TABLE IF NOT EXISTS api_sync_status (
+    endpoint VARCHAR(100) PRIMARY KEY,
+    last_sync_timestamp TIMESTAMP WITH TIME ZONE,
+    last_successful_offset INTEGER,
+    last_error TEXT,
+    status VARCHAR(50)
+);
+
+-- Add index for API sync status timestamp
+CREATE INDEX IF NOT EXISTS idx_api_sync_last_sync ON api_sync_status(last_sync_timestamp);
 
 -- Function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -1,5 +1,27 @@
 ## This is a working document to track progress and ownership:
 
+
+----
+Trailing prompt
+Review `Docs/2_Technical_Documentation/Analytics_UseCases.md`
+Review `Docs/2_Technical_Documentation/Analytics_Implementation_Guide.md`
+Review `Docs/2_Technical_Documentation/Analytics_Tracker.md`
+
+Let's work on the next use case, "Introduction to Passage Time"
+
+You cannot "curl" the endpoints, you can view the pages here `http://localhost:3001/analytics/legislative/passage-time`
+
+Please, feel free to review other files as needed. The database is running(be sure you're not currently in an active venv), the backend api is running(under `backend/venv/bin/activate`), and the frontend is running and accessible at http://localhost:3001 - when validating SQL queries us psql, like the following-
+
+```bash
+deactivate && psql postgresql://localhost/project_tacitus_test -c "SELECT COUNT(*) FROM bills;"
+```
+
+Acknowledge you understand what we're working on, and ask any questions you might have.
+----
+
+This might require some schema extensions, not sure, but eventually there will be a "Committee Details" page, that outlines the committees purpose, members, current bills, previous bills and voting history, and any other data/documents that the committee might publish. 
+
 ### Next Steps (in priority order):
 
 ### 1. Tag System Enhancements:

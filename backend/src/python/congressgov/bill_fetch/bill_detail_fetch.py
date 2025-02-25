@@ -104,6 +104,59 @@ def process_text_versions(versions: List[Dict[str, Any]], introduced_date: Optio
 
     return versions
 
+def get_or_create_policy_area_tag(cur, policy_area_name: str) -> Optional[int]:
+    """
+    Get or create a policy area tag, ensuring it exists in the hierarchical tag system
+    """
+    if not policy_area_name:
+        return None
+
+    # First, get the Policy Area tag type ID
+    cur.execute("SELECT id FROM tag_types WHERE name = 'Policy Area'")
+    result = cur.fetchone()
+    if not result:
+        logger.error("Policy Area tag type not found")
+        return None
+    
+    type_id = result[0]
+    normalized_name = policy_area_name.lower().replace(' ', '_').replace(',', '_').replace('&', 'and').replace('-', '_')
+
+    # Try to find existing tag
+    cur.execute("""
+        SELECT id FROM tags 
+        WHERE type_id = %s AND normalized_name = %s
+    """, (type_id, normalized_name))
+    result = cur.fetchone()
+    
+    if result:
+        return result[0]
+
+    # Create new tag if it doesn't exist
+    cur.execute("""
+        INSERT INTO tags (type_id, name, normalized_name, description)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+    """, (
+        type_id,
+        policy_area_name,
+        normalized_name,
+        f'Bills related to {policy_area_name}'
+    ))
+    return cur.fetchone()[0]
+
+def update_bill_tags(cur, bill_id: int, tag_id: int):
+    """
+    Update bill-tag relationships in the bill_tags table
+    """
+    if not tag_id:
+        return
+
+    cur.execute("""
+        INSERT INTO bill_tags (bill_id, tag_id)
+        VALUES (%s, %s)
+        ON CONFLICT (bill_id, tag_id) DO NOTHING
+    """, (bill_id, tag_id))
+
 def update_database(bill_detail: Dict[str, Any], text_versions_data: Optional[Dict[str, Any]] = None):
     """
     Update the database with detailed bill information
@@ -144,17 +197,18 @@ def update_database(bill_detail: Dict[str, Any], text_versions_data: Optional[Di
                             'text': s.get('text')
                         } for s in summary_data['summaries']]
 
+        # First update the bill
         update_query = """
             UPDATE bills SET
                 bill_title = %s,
                 sponsor_id = %s,
                 introduced_date = %s,
                 summary = %s,
-                tags = %s,
                 congress = %s,
                 status = %s,
                 text_versions = %s::jsonb
             WHERE bill_number = %s
+            RETURNING id
         """
         
         update_values = (
@@ -162,7 +216,6 @@ def update_database(bill_detail: Dict[str, Any], text_versions_data: Optional[Di
             bill.get('sponsors', [{}])[0].get('bioguideId') if bill.get('sponsors') else None,
             bill.get('introducedDate'),
             json.dumps(summaries) if summaries else None,
-            [bill.get('policyArea', {}).get('name')] if bill.get('policyArea') else None,
             bill.get('congress'),
             bill.get('latestAction', {}).get('text', ''),
             json.dumps(text_versions) if text_versions else None,
@@ -171,13 +224,22 @@ def update_database(bill_detail: Dict[str, Any], text_versions_data: Optional[Di
         
         logger.info(f"Executing update query for bill {bill_number}")
         cur.execute(update_query, update_values)
-        rows_affected = cur.rowcount
+        result = cur.fetchone()
         
-        if rows_affected == 0:
+        if not result:
             logger.warning(f"No rows updated for bill {bill_number}. Bill may not exist in the database.")
         else:
+            bill_id = result[0]
+            
+            # Handle policy area tag
+            policy_area_name = bill.get('policyArea', {}).get('name')
+            if policy_area_name:
+                tag_id = get_or_create_policy_area_tag(cur, policy_area_name)
+                if tag_id:
+                    update_bill_tags(cur, bill_id, tag_id)
+            
             conn.commit()
-            logger.info(f"Database updated successfully for bill {bill_number}. Rows affected: {rows_affected}")
+            logger.info(f"Database updated successfully for bill {bill_number}")
     except Exception as error:
         logger.error(f"Unexpected error while updating database for bill {bill_number}: {error}")
         logger.error(f"Error type: {type(error)}")

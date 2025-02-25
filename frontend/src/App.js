@@ -7,6 +7,7 @@ import BillDetails from './pages/BillDetails';
 import Representatives from './pages/Representatives';
 import RepresentativeDetails from './pages/RepresentativeDetails';
 import Analytics from './pages/Analytics';
+import LegislativeAnalytics from './pages/LegislativeAnalytics';
 import Profile from './pages/Profile';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
         <Route path="/representatives" element={<Representatives />} />
         <Route path="/representatives/:bioguideId" element={<RepresentativeDetails />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/analytics/legislative/*" element={<LegislativeAnalytics />} />
         <Route path="/profile" element={<Profile />} />
       </Routes>
     </Layout>

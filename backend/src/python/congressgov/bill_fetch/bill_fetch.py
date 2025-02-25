@@ -99,6 +99,65 @@ def normalize_status(action_text):
     
     return None
 
+def normalize_tag_name(name):
+    """Convert a tag name to its normalized form"""
+    if not name:
+        return None
+    return name.lower().replace(' ', '_').replace(',', '_').replace('&', 'and').replace('-', '_')
+
+def get_or_create_policy_area_tag(cur, policy_area_name):
+    """
+    Get or create a policy area tag, ensuring it exists in the hierarchical tag system
+    """
+    if not policy_area_name:
+        return None
+
+    # First, get the Policy Area tag type ID
+    cur.execute("SELECT id FROM tag_types WHERE name = 'Policy Area'")
+    result = cur.fetchone()
+    if not result:
+        logging.error("Policy Area tag type not found")
+        return None
+    
+    type_id = result[0]
+    normalized_name = normalize_tag_name(policy_area_name)
+
+    # Try to find existing tag
+    cur.execute("""
+        SELECT id FROM tags 
+        WHERE type_id = %s AND normalized_name = %s
+    """, (type_id, normalized_name))
+    result = cur.fetchone()
+    
+    if result:
+        return result[0]
+
+    # Create new tag if it doesn't exist
+    cur.execute("""
+        INSERT INTO tags (type_id, name, normalized_name, description)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+    """, (
+        type_id,
+        policy_area_name,
+        normalized_name,
+        f'Bills related to {policy_area_name}'
+    ))
+    return cur.fetchone()[0]
+
+def update_bill_tags(cur, bill_id, tag_id):
+    """
+    Update bill-tag relationships in the bill_tags table
+    """
+    if not tag_id:
+        return
+
+    cur.execute("""
+        INSERT INTO bill_tags (bill_id, tag_id)
+        VALUES (%s, %s)
+        ON CONFLICT (bill_id, tag_id) DO NOTHING
+    """, (bill_id, tag_id))
+
 def update_database(bills):
     """
     Update the database with bill information
@@ -115,37 +174,47 @@ def update_database(bills):
             sponsor_id = bill.get('sponsors', [{}])[0].get('bioguideId') if bill.get('sponsors') else None
             introduced_date = bill.get('introducedDate')
             summary = None  # summary will be fetched separately
-            tags = [bill.get('policyArea', {}).get('name')] if bill.get('policyArea') else None
             congress = bill.get('congress')
             action_text = bill.get('latestAction', {}).get('text', '')
             status = action_text
             normalized_status = normalize_status(action_text)
             bill_text = None  # bill_text will be fetched separately
 
+            # Insert or update bill and get its ID
             cur.execute("""
                 INSERT INTO bills (
                     bill_number, bill_title, sponsor_id, introduced_date, 
-                    summary, tags, congress, status, bill_text, normalized_status
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    summary, congress, status, bill_text, normalized_status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (bill_number) DO UPDATE SET
                     bill_title = EXCLUDED.bill_title,
                     sponsor_id = EXCLUDED.sponsor_id,
                     introduced_date = EXCLUDED.introduced_date,
                     summary = EXCLUDED.summary,
-                    tags = EXCLUDED.tags,
                     congress = EXCLUDED.congress,
                     status = EXCLUDED.status,
                     bill_text = EXCLUDED.bill_text,
                     normalized_status = EXCLUDED.normalized_status
+                RETURNING id
             """, (
                 bill_number, bill_title, sponsor_id, introduced_date,
-                summary, tags, congress, status, bill_text, normalized_status
+                summary, congress, status, bill_text, normalized_status
             ))
+            bill_id = cur.fetchone()[0]
+
+            # Handle policy area tag
+            policy_area_name = bill.get('policyArea', {}).get('name')
+            if policy_area_name:
+                tag_id = get_or_create_policy_area_tag(cur, policy_area_name)
+                if tag_id:
+                    update_bill_tags(cur, bill_id, tag_id)
 
         conn.commit()
         logging.info("Database updated successfully")
     except (Exception, psycopg2.Error) as error:
         logging.error(f"Error while connecting to PostgreSQL or updating database: {error}")
+        if conn:
+            conn.rollback()
     finally:
         if conn:
             cur.close()
