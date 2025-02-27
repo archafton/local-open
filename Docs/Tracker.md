@@ -1,6 +1,6 @@
 ## This is a working document to track progress and ownership:
 
-
+I broke something by removing the tags column in the bills table. The Tags are not properly displaying on the bill table now, probably because the api endpoint isn't bringing in the tags properly now.
 ----
 Trailing prompt
 Review `Docs/2_Technical_Documentation/Analytics_UseCases.md`

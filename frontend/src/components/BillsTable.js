@@ -113,11 +113,8 @@ const BillsTable = ({ data, sortConfig, onSort }) => {
               Introduced {getSortIcon('introduced_date')}
             </th>
             <th className="py-3 px-4 text-left">Status</th>
-            <th 
-              className="py-3 px-4 text-left cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600"
-              onClick={() => requestSort('tags')}
-            >
-              Tags {getSortIcon('tags')}
+            <th className="py-3 px-4 text-left">
+              Tags
             </th>
             <th 
               className="py-3 px-4 text-left cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600"

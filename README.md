@@ -10,14 +10,30 @@ Project Tacitus is a comprehensive platform designed to provide users with acces
 project-tacitus/
 ├── backend/
 │   └── src/
+│       ├── api/                    # API routes
+│       │   ├── __init__.py         # API blueprint initialization
+│       │   ├── analytics.py        # Analytics endpoints
+│       │   ├── bills.py           # Bill-related endpoints
+│       │   ├── representatives.py  # Representative endpoints
+│       │   └── tags.py            # Tag system endpoints
+│       ├── models/                 # Data models
+│       │   ├── __init__.py         # Model exports
+│       │   ├── analytics.py        # Analytics queries
+│       │   ├── bill.py            # Bill-related queries
+│       │   ├── representative.py   # Representative queries
+│       │   └── tag.py             # Tag system queries
+│       ├── utils/                  # Utility functions
+│       │   ├── __init__.py         # Utility exports
+│       │   ├── database.py        # Database connection handling
+│       │   ├── exceptions.py      # Custom exceptions
+│       │   └── helpers.py         # Helper functions
 │       ├── python/
 │       │   └── congressgov/
-│       │       ├── bill_fetch/      # Bill fetching and processing
-│       │       ├── bill_summary/    # AI-powered bill summarization
-│       │       └── members_fetch/   # Representative data fetching
-│       ├── api.py                   # Main API endpoints
-│       ├── app.py                   # Application setup
-│       └── schema.sql              # Database schema
+│       │       ├── bill_fetch/     # Bill fetching and processing
+│       │       ├── bill_summary/   # AI-powered bill summarization
+│       │       └── members_fetch/  # Representative data fetching
+│       ├── app.py                  # Application setup
+│       └── schema.sql             # Database schema
 ├── Docs/
 │   ├── 1_Project_Overview/         # Project vision and goals
 │   ├── 2_Technical_Documentation/  # Implementation details
@@ -112,7 +128,7 @@ cd backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python3 src/api.py
+python3 src/app.py
 ```
 
 4. **Frontend Setup**
@@ -130,16 +146,71 @@ psql postgresql://localhost/project_tacitus_test -c "SELECT COUNT(*) FROM bills;
 ```
 
 6. **Data Fetching**
+
+See:
+
+a. [Bill Processing Guide](Docs/4_Deployment_Guides/Bill_Processing_Guide.md)
+
+b. [Member Processing Guide](Docs/4_Deployment_Guides/Member_Processing_Guide.md)
+
+**Simple Description:**
+How the Files Work Together
+
+bill_fetch_core.py - Fetches initial bill metadata
+bill_detail_processor.py - Enriches bills with detailed information
+bill_batch_processor.py - Processes bills in batches, useful for historical data or filling gaps
+bill_validation.py - Validates database state, identifies missing information
+
+A typical workflow might be:
+
+Run bill_fetch_core.py to get latest bills
+Run bill_detail_processor.py to enrich those bills
+Run bill_validation.py to check if anything is missing
+Use bill_batch_processor.py with the --validate flag to fill in any gaps
+
+Usage Examples
+1. Basic Bill Fetching (Incremental)
 ```bash
-cd backend
-source venv/bin/activate
-python3 src/python/congressgov/bill_fetch/bill_fetch.py
-python3 src/python/congressgov/bill_fetch/bill_detail_fetch.py
-python3 src/python/congressgov/bill_fetch/bill_enrichment.py
-python3 src/python/congressgov/members_fetch/member_fetch.py
-python3 src/python/congressgov/members_fetch/member_detail_fetch.py
-python3 src/python/congressgov/members_fetch/member_bio.py
+Python bill_fetch_core.py
 ```
+2. Forced Full Sync
+```bash
+Python bill_fetch_core.py --force-full
+```
+3. Date Range Fetching
+```bash
+Python bill_fetch_core.py --start-date 2023-01-01 --end-date 2023-12-31
+```
+4. Process Recent Bills
+```bash
+Python bill_detail_processor.py --recent --limit 50
+```
+5. Process Specific Bill
+```bash
+Python bill_detail_processor.py --bill HR1234 --congress 117
+```
+6. Process Bills Missing Text Versions
+```bash
+Python bill_batch_processor.py --missing text_versions --limit 100
+```
+7. Process All Bills from a Congress
+```bash
+Python bill_batch_processor.py --congress 117 --batch-size 20 --parallel
+```
+8. Validate and Process Missing Data
+```bash
+Python bill_batch_processor.py --validate --limit 100
+```
+
+## API Structure
+
+The backend uses a modular API structure organized into distinct layers:
+
+- **API Routes** (`/api`): HTTP endpoint definitions and request handling
+- **Models** (`/models`): Database queries and data manipulation logic
+- **Utils** (`/utils`): Shared utilities, database connection, and helper functions
+
+This separation of concerns makes the codebase more maintainable and easier to test.
 
 ## Documentation
 

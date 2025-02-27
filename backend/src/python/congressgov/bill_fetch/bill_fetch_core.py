@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""
+Core bill fetching functionality with incremental processing.
+Retrieves bills from Congress.gov API and stores them in the database.
+"""
+
+import os
+import json
+import argparse
+from datetime import datetime, timedelta
+from typing import Dict, Any, List, Optional
+
+# Import utilities
+from congressgov.utils.logging_config import setup_logging
+from congressgov.utils.api import APIClient
+from congressgov.utils.database import get_db_connection, with_db_transaction
+from congressgov.utils.file_storage import ensure_directory, save_json, cleanup_old_files
+from congressgov.utils.tag_utils import get_or_create_policy_area_tag, update_bill_tags
+from congressgov.utils.bill_utils import normalize_bill_status, parse_bill_number
+
+# Set up logging
+logger = setup_logging(__name__)
+
+# API configuration
+BASE_API_URL = "https://api.congress.gov/v3"
+BILLS_LIST_ENDPOINT = "bill"
+SYNC_STATUS_TABLE = "api_sync_status"
+DEFAULT_LIMIT = 250
+RAW_DATA_RETENTION_DAYS = 30
+
+def get_last_sync_timestamp() -> Optional[datetime]:
+    """Get the last successful sync timestamp from the database."""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT last_sync_timestamp 
+                FROM {SYNC_STATUS_TABLE} 
+                WHERE endpoint = %s AND status = 'success'
+                ORDER BY last_sync_timestamp DESC 
+                LIMIT 1
+            """, (BILLS_LIST_ENDPOINT,))
+            result = cur.fetchone()
+            return result[0] if result else None
+
+def update_sync_status(status: str, offset: int = 0, error: str = None):
+    """Update sync status in the database."""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO {SYNC_STATUS_TABLE} (
+                    endpoint, last_sync_timestamp, last_successful_offset,
+                    status, last_error
+                ) VALUES (%s, CURRENT_TIMESTAMP, %s, %s, %s)
+                ON CONFLICT (endpoint) DO UPDATE SET
+                    last_sync_timestamp = CURRENT_TIMESTAMP,
+                    last_successful_offset = EXCLUDED.last_successful_offset,
+                    status = EXCLUDED.status,
+                    last_error = EXCLUDED.last_error
+            """, (BILLS_LIST_ENDPOINT, offset, status, error))
+            conn.commit()
+
+def save_bills_to_json(bills_data: Dict[str, Any], timestamp: str = None) -> str:
+    """Save bills data to a JSON file."""
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    raw_dir = ensure_directory(os.path.dirname(__file__), 'raw', timestamp)
+    filename = f"bills_{timestamp}.json"
+    
+    return save_json(bills_data, raw_dir, filename)
+
+@with_db_transaction
+def update_database(cursor, bills: List[Dict[str, Any]]) -> Dict[str, int]:
+    """
+    Update database with bill information.
+    
+    Args:
+        cursor: Database cursor
+        bills: List of bill data dictionaries
+        
+    Returns:
+        Dictionary with counts of inserted, updated, and skipped bills
+    """
+    stats = {"inserted": 0, "updated": 0, "skipped": 0, "error": 0}
+    
+    for bill in bills:
+        try:
+            # Extract bill data
+            bill_type = bill.get('type', '')
+            bill_number = f"{bill_type}{bill.get('number', '')}"
+            bill_title = bill.get('title', '')
+            sponsor_id = bill.get('sponsors', [{}])[0].get('bioguideId') if bill.get('sponsors') else None
+            introduced_date = bill.get('introducedDate')
+            congress = bill.get('congress')
+            action_text = bill.get('latestAction', {}).get('text', '')
+            action_date = bill.get('latestAction', {}).get('actionDate')
+            normalized_status = normalize_bill_status(action_text)
+            policy_area = bill.get('policyArea', {}).get('name')
+            
+            # Check if bill already exists
+            cursor.execute("SELECT id, last_updated FROM bills WHERE bill_number = %s", (bill_number,))
+            existing_bill = cursor.fetchone()
+            
+            # For incremental processing: if bill exists and hasn't been modified since our data,
+            # we can skip it (add more conditions as needed)
+            if existing_bill and bill.get('updateDate'):
+                bill_update_date = datetime.fromisoformat(bill.get('updateDate').replace('Z', '+00:00'))
+                db_update_date = existing_bill[1]
+                
+                if db_update_date and db_update_date >= bill_update_date:
+                    logger.debug(f"Skipping bill {bill_number} - no updates")
+                    stats["skipped"] += 1
+                    continue
+            
+            # Insert or update bill
+            cursor.execute("""
+                INSERT INTO bills (
+                    bill_number, bill_title, sponsor_id, introduced_date, 
+                    congress, status, normalized_status, latest_action,
+                    latest_action_date, bill_type, policy_area, last_updated
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (bill_number) DO UPDATE SET
+                    bill_title = EXCLUDED.bill_title,
+                    sponsor_id = EXCLUDED.sponsor_id,
+                    introduced_date = EXCLUDED.introduced_date,
+                    congress = EXCLUDED.congress,
+                    status = EXCLUDED.status,
+                    normalized_status = EXCLUDED.normalized_status,
+                    latest_action = EXCLUDED.latest_action,
+                    latest_action_date = EXCLUDED.latest_action_date,
+                    bill_type = EXCLUDED.bill_type,
+                    policy_area = EXCLUDED.policy_area,
+                    last_updated = CURRENT_TIMESTAMP
+                RETURNING id
+            """, (
+                bill_number, bill_title, sponsor_id, introduced_date,
+                congress, action_text, normalized_status, action_text,
+                action_date, bill_type, policy_area
+            ))
+            
+            bill_id = cursor.fetchone()[0]
+            
+            # Handle policy area tag
+            if policy_area:
+                tag_id = get_or_create_policy_area_tag(cursor, policy_area)
+                if tag_id:
+                    update_bill_tags(cursor, bill_id, tag_id)
+            
+            # Record type of operation for stats
+            if existing_bill:
+                stats["updated"] += 1
+            else:
+                stats["inserted"] += 1
+                
+        except Exception as e:
+            logger.error(f"Error processing bill {bill.get('type')}{bill.get('number')}: {str(e)}")
+            stats["error"] += 1
+    
+    return stats
+
+def fetch_bills(api_client: APIClient, from_date: Optional[datetime] = None, 
+                to_date: Optional[datetime] = None, limit: int = DEFAULT_LIMIT) -> Dict[str, Any]:
+    """
+    Fetch bills from Congress.gov API.
+    
+    Args:
+        api_client: API client
+        from_date: Start date filter
+        to_date: End date filter
+        limit: Maximum bills per page
+        
+    Returns:
+        Dictionary with fetched bills data
+    """
+    params = {
+        'limit': limit,
+        'sort': 'updateDate desc'
+    }
+    
+    # Add date filtering if provided
+    if from_date:
+        params['fromDateTime'] = from_date.strftime("%Y-%m-%dT00:00:00Z")
+    if to_date:
+        params['toDateTime'] = to_date.strftime("%Y-%m-%dT23:59:59Z")
+    
+    # Get all bills using pagination
+    bills = api_client.get_paginated(BILLS_LIST_ENDPOINT, params, 'bills')
+    
+    return {'bills': bills, 'fetchDate': datetime.now().isoformat()}
+
+def main():
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Fetch bills from Congress.gov API')
+    parser.add_argument('--force-full', action='store_true', help='Force full sync instead of incremental')
+    parser.add_argument('--start-date', help='Start date in YYYY-MM-DD format')
+    parser.add_argument('--end-date', help='End date in YYYY-MM-DD format')
+    parser.add_argument('--days', type=int, default=7, help='Number of days to look back for incremental sync')
+    args = parser.parse_args()
+    
+    try:
+        # Initialize API client
+        api_client = APIClient(BASE_API_URL)
+        
+        # Start incremental sync by default
+        from_date = None
+        to_date = None
+        
+        # Use command line date filters if provided
+        if args.start_date:
+            from_date = datetime.strptime(args.start_date, '%Y-%m-%d')
+        
+        if args.end_date:
+            to_date = datetime.strptime(args.end_date, '%Y-%m-%d')
+        
+        # If not forced and no explicit dates, get last sync date
+        if not args.force_full and not args.start_date:
+            last_sync = get_last_sync_timestamp()
+            if last_sync:
+                # Look back a few days before last sync to ensure no gaps
+                from_date = last_sync - timedelta(days=args.days)
+                logger.info(f"Running incremental sync from {from_date.isoformat()}")
+            else:
+                logger.info("No previous sync found, running full sync")
+        
+        # Update status to in-progress
+        update_sync_status('in_progress')
+        
+        # Fetch bills
+        logger.info("Fetching bills from Congress.gov API")
+        bills_data = fetch_bills(api_client, from_date, to_date)
+        
+        # Save to JSON file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_path = save_bills_to_json(bills_data, timestamp)
+        logger.info(f"Bills data saved to {file_path}")
+        
+        # Clean up old files
+        cleanup_old_files(os.path.join(os.path.dirname(__file__), 'raw'), 
+                         pattern='*', days=RAW_DATA_RETENTION_DAYS)
+        
+        # Update database
+        if bills_data['bills']:
+            logger.info(f"Updating database with {len(bills_data['bills'])} bills")
+            stats = update_database(bills_data['bills'])
+            logger.info(f"Database updated: {stats['inserted']} inserted, {stats['updated']} updated, "
+                       f"{stats['skipped']} skipped, {stats['error']} errors")
+        else:
+            logger.info("No bills to update")
+        
+        # Update sync status to success
+        update_sync_status('success')
+        
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}", exc_info=True)
+        update_sync_status('failed', error=str(e))
+        raise
+
+if __name__ == "__main__":
+    main()
