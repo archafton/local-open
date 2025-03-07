@@ -65,7 +65,7 @@ class RetryStrategy:
 class APIClient:
     """Client for making requests to Congress.gov API with error handling and retry logic."""
     
-    def __init__(self, base_url: str, api_key: Optional[str] = None, delay: float = 0.5):
+    def __init__(self, base_url: str, api_key: Optional[str] = None, delay: float = 0.5, timeout: int = 30):
         """
         Initialize API client
         
@@ -73,10 +73,12 @@ class APIClient:
             base_url: Base URL for API requests
             api_key: API key (defaults to environment variable if not provided)
             delay: Delay between requests in seconds
+            timeout: Timeout for requests in seconds
         """
         self.base_url = base_url
         self.api_key = api_key or API_KEY
         self.delay = delay
+        self.timeout = timeout
         self.session = requests.Session()
         self.retry_strategy = RetryStrategy()
         
@@ -108,7 +110,7 @@ class APIClient:
         logger.info(f"Making GET request to {url}")
         
         def make_request():
-            response = self.session.get(url, params=all_params)
+            response = self.session.get(url, params=all_params, timeout=self.timeout)
             response.raise_for_status()
             # Add delay to avoid rate limiting
             time.sleep(self.delay)
@@ -135,28 +137,51 @@ class APIClient:
         current_params['limit'] = limit
         current_params['offset'] = current_params.get('offset', 0)
         
-        while True:
-            response = self.get(endpoint, current_params)
-            
-            # Extract items from response
-            if items_key and items_key in response:
-                page_items = response[items_key]
-                if isinstance(page_items, list):
-                    all_items.extend(page_items)
-                else:
-                    logger.warning(f"Expected list for {items_key}, got {type(page_items)}")
-            else:
-                # If no items_key specified, use the first list found in the response
-                for key, value in response.items():
-                    if isinstance(value, list) and key != 'pagination':
-                        all_items.extend(value)
-                        break
-            
-            # Check if we need to fetch the next page
-            if 'pagination' not in response or 'next' not in response['pagination']:
-                break
-                
-            # Update offset for next page
-            current_params['offset'] += limit
+        # For safety, limit to 10 pages maximum
+        max_pages = 10
+        current_page = 0
         
+        logger.info(f"Starting paginated request to {endpoint} with params: {current_params}")
+        
+        while current_page < max_pages:
+            current_page += 1
+            logger.info(f"Fetching page {current_page} with offset {current_params['offset']}")
+            
+            try:
+                response = self.get(endpoint, current_params)
+                
+                # Extract items from response
+                if items_key and items_key in response:
+                    page_items = response[items_key]
+                    if isinstance(page_items, list):
+                        logger.info(f"Found {len(page_items)} items in {items_key}")
+                        all_items.extend(page_items)
+                    else:
+                        logger.warning(f"Expected list for {items_key}, got {type(page_items)}")
+                else:
+                    # If no items_key specified, use the first list found in the response
+                    found_items = False
+                    for key, value in response.items():
+                        if isinstance(value, list) and key != 'pagination':
+                            logger.info(f"Found {len(value)} items in {key}")
+                            all_items.extend(value)
+                            found_items = True
+                            break
+                    
+                    if not found_items:
+                        logger.warning(f"No items found in response: {list(response.keys())}")
+                
+                # Check if we need to fetch the next page
+                if 'pagination' not in response or 'next' not in response['pagination']:
+                    logger.info("No more pages to fetch")
+                    break
+                    
+                # Update offset for next page
+                current_params['offset'] += limit
+                
+            except Exception as e:
+                logger.error(f"Error fetching page {current_page}: {str(e)}")
+                break
+        
+        logger.info(f"Completed paginated request, fetched {len(all_items)} items total")
         return all_items

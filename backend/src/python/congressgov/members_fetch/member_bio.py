@@ -126,8 +126,10 @@ class MemberBioProcessor:
         return save_json(data, dir_path, filename)
     
     @with_db_transaction
-    def update_member_bio(self, cursor, bio_data: Dict[str, Any]) -> bool:
+    def update_member_bio(cursor, self, bio_data: Dict[str, Any]) -> bool:
         """Update member bio in the database."""
+        # The decorator injects 'cursor' as the first parameter, shifting 'self' to second position
+        
         bioguide_id = bio_data.get('bioguideId')
         
         if not bioguide_id:
@@ -179,7 +181,7 @@ class MemberBioProcessor:
             logger.info(f"Saved bio data to {file_path}")
             
             # Update database
-            results["bio_updated"] = self.update_member_bio(bio_data)
+            results["bio_updated"] = self.update_member_bio(bio_data=bio_data)
             
             logger.info(f"Successfully processed bio for member {bioguide_id}")
             

@@ -59,12 +59,46 @@ python member_detail_processor.py --all
 # Focus on members with missing details
 python member_detail_processor.py --missing
 
+#BROKE running this will get you the following
+
+#(venv) jakevance@Jakes-MacBook-Pro local-open % cd backend && python src/python/congressgov/members_fetch/member_detail_processor.py --missing 
+#2025-03-06 15:46:27,166 - __main__ - INFO - Logging to /Users/jakevance/Documents/github/local-open/backend/src/python/congressgov/logs/__main___20250306.log
+#Database connection error: column "last_updated" does not exist
+#LINE 9:                     ORDER BY last_updated ASC NULLS FIRST
+#                                     ^
+#
+#2025-03-06 15:46:27,196 - __main__ - ERROR - An error occurred: column "last_updated" does not exist
+#LINE 9:                     ORDER BY last_updated ASC NULLS FIRST
+#                                     ^
+#Traceback (most recent call last):
+#  File "/Users/jakevance/Documents/github/local-open/backend/src/python/congressgov/members_fetch/member_detail_processor.py", line 276, in main
+#    members_to_process = get_members_for_processing(recent_only, args.days, args.limit)
+#                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#  File "/Users/jakevance/Documents/github/local-open/backend/src/python/congressgov/members_fetch/member_detail_processor.py", line 218, in get_members_for_processing
+#    cur.execute("""
+#psycopg2.errors.UndefinedColumn: column "last_updated" does not exist
+#LINE 9:                     ORDER BY last_updated ASC NULLS FIRST
+#                                     ^
+#
+#Traceback (most recent call last):
+#  File "/Users/jakevance/Documents/github/local-open/backend/src/python/congressgov/members_fetch/member_detail_processor.py", line 316, in <module>
+#    main()
+#  File "/Users/jakevance/Documents/github/local-open/backend/src/python/congressgov/members_fetch/member_detail_processor.py", line 276, in main
+#    members_to_process = get_members_for_processing(recent_only, args.days, args.limit)
+#                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#  File "/Users/jakevance/Documents/github/local-open/backend/src/python/congressgov/members_fetch/member_detail_processor.py", line 218, in get_members_for_processing
+#    cur.execute("""
+#psycopg2.errors.UndefinedColumn: column "last_updated" does not exist
+#LINE 9:                     ORDER BY last_updated ASC NULLS FIRST
+#                                     ^
+
 # Limit the number of members processed
 python member_detail_processor.py --limit 50
 ```
 
 ### Enriching Member Data
 
+#### NOT SURE THIS IS NEEDED ANYMORE AS THIS IS DETAILED VIA bill_detail_processor
 Use `member_enrichment.py` to associate members with bills they've sponsored or cosponsored.
 
 ```bash
@@ -72,7 +106,7 @@ Use `member_enrichment.py` to associate members with bills they've sponsored or 
 python member_enrichment.py
 
 # Enrich a specific member
-python member_enrichment.py --member A000055
+python member_enrichment.py --member A000055 P000603
 
 # Enrich all current members
 python member_enrichment.py --all
@@ -96,7 +130,7 @@ Use `member_bio.py` to scrape biographical information from bioguide.congress.go
 python member_bio.py
 
 # Process bio for a specific member
-python member_bio.py --member A000055
+python member_bio.py --member P000603
 
 # Process bios for all members
 python member_bio.py --all

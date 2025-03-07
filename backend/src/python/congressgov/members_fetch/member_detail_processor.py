@@ -52,8 +52,9 @@ class MemberDetailProcessor:
         return save_json(data, dir_path, filename)
     
     @with_db_transaction
-    def update_member_details(self, cursor, member_data: Dict[str, Any]) -> bool:
+    def update_member_details(cursor, self, member_data: Dict[str, Any]) -> bool:
         """Update member details in the database."""
+        # The decorator injects 'cursor' as the first parameter, shifting 'self' to second position
         if 'member' not in member_data:
             logger.warning("No member data found in response")
             return False
@@ -187,7 +188,7 @@ class MemberDetailProcessor:
             self.save_member_data(member_data, bioguide_id, 'details')
             
             # Update member details
-            results["details_updated"] = self.update_member_details(member_data)
+            results["details_updated"] = self.update_member_details(member_data=member_data)
             
             logger.info(f"Successfully processed member {bioguide_id}")
             

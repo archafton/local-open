@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS bills (
     summary TEXT,
     congress INTEGER,
     status TEXT,
-    bill_text TEXT
+    bill_text TEXT,
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS members (
@@ -121,6 +122,11 @@ CREATE TABLE IF NOT EXISTS bill_committees (
     committee_id INTEGER REFERENCES committees(id),
     PRIMARY KEY (bill_id, committee_id)
 );
+
+-- Add missing columns to bill_committees table
+ALTER TABLE bill_committees
+ADD COLUMN IF NOT EXISTS referral_date DATE,
+ADD COLUMN IF NOT EXISTS referral_type VARCHAR(50);
 
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,

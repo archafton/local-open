@@ -60,6 +60,16 @@ class BillProcessor:
         logger.info(f"Fetching summaries from: {url}")
         return self.api_client.get(url.replace(BASE_API_URL + '/', ''))
     
+    def fetch_bill_cosponsors(self, url: str) -> Dict[str, Any]:
+        """Fetch bill cosponsors using the provided URL."""
+        logger.info(f"Fetching cosponsors from: {url}")
+        return self.api_client.get(url.replace(BASE_API_URL + '/', ''))
+    
+    def fetch_bill_subjects(self, url: str) -> Dict[str, Any]:
+        """Fetch bill subjects using the provided URL."""
+        logger.info(f"Fetching subjects from: {url}")
+        return self.api_client.get(url.replace(BASE_API_URL + '/', ''))
+    
     def process_text_versions(self, versions: List[Dict[str, Any]], introduced_date: Optional[str] = None) -> List[Dict[str, Any]]:
         """Process text versions with consistent formatting."""
         if not versions:
@@ -111,12 +121,44 @@ class BillProcessor:
         return save_json(data, dir_path, filename, create_backup=True)
     
     @with_db_transaction
-    def update_bill_details(self, cursor, bill_data: Dict[str, Any], 
+    def update_bill_details(cursor, self, bill_data: Dict[str, Any], 
                           text_versions_data: Optional[Dict[str, Any]] = None,
                           summaries_data: Optional[Dict[str, Any]] = None) -> bool:
         """Update bill details in the database."""
-        bill = bill_data['bill']
-        bill_number = f"{bill['type']}{bill['number']}"
+        # The decorator injects 'cursor' as the first parameter, shifting 'self' to second position
+        
+        # Check if bill_data has the expected structure
+        if 'bill' not in bill_data:
+            logger.warning("Bill data missing 'bill' field")
+            return False
+            
+        # Handle different bill structures
+        if isinstance(bill_data['bill'], list):
+            # For older bills (array structure)
+            if not bill_data['bill']:  # Empty array
+                logger.warning("Bill data contains empty bill array")
+                return False
+                
+            # Sort by updateDate (descending) and use the most recently updated entry
+            sorted_bills = sorted(bill_data['bill'], 
+                                key=lambda x: x.get('updateDate', ''), 
+                                reverse=True)
+            bill = sorted_bills[0]
+            
+            # Log that we found multiple entries
+            if len(bill_data['bill']) > 1:
+                logger.info(f"Multiple bill entries found for {bill.get('type', '')}{bill.get('number', '')}. "
+                          f"Using most recently updated entry from {bill.get('updateDate', 'unknown date')}")
+        else:
+            # For newer bills (dictionary structure)
+            bill = bill_data['bill']
+        
+        # Now proceed with the bill object
+        if 'type' not in bill or 'number' not in bill:
+            logger.warning(f"Bill missing required fields: {bill.keys()}")
+            return False
+            
+        bill_number = f"{bill['type']}{bill['number']}".upper()
         
         # Process summaries
         summaries = []
@@ -131,7 +173,7 @@ class BillProcessor:
         # Process text versions
         text_versions = []
         if text_versions_data and 'textVersions' in text_versions_data:
-            text_versions = self.process_text_versions(
+            text_versions = self.process_text_versions(  # Use self to call instance methods
                 text_versions_data['textVersions'],
                 bill.get('introducedDate')
             )
@@ -185,11 +227,25 @@ class BillProcessor:
         return True
     
     @with_db_transaction
-    def update_bill_actions(self, cursor, bill_number: str, actions_data: Dict[str, Any]) -> int:
+    def update_bill_actions(cursor, self, bill_number: str, actions_data: Dict[str, Any]) -> int:
         """Update bill actions in the database."""
+        # The decorator injects 'cursor' as the first parameter, shifting 'self' to second position
+        
         if not actions_data or 'actions' not in actions_data:
             logger.warning(f"No actions found for bill {bill_number}")
             return 0
+        
+        # Check if the bill exists in the database with this exact bill_number
+        cursor.execute("SELECT 1 FROM bills WHERE bill_number = %s", (bill_number,))
+        if not cursor.fetchone():
+            # Try uppercase version
+            uppercase_bill_number = bill_number.upper()
+            cursor.execute("SELECT 1 FROM bills WHERE bill_number = %s", (uppercase_bill_number,))
+            if cursor.fetchone():
+                bill_number = uppercase_bill_number
+            else:
+                logger.warning(f"Bill {bill_number} not found in database, cannot update actions")
+                return 0
         
         actions = actions_data['actions']
         count = 0
@@ -214,10 +270,24 @@ class BillProcessor:
         return count
     
     @with_db_transaction
-    def update_bill_cosponsors(self, cursor, bill_number: str, cosponsors: List[Dict[str, Any]]) -> int:
+    def update_bill_cosponsors(cursor, self, bill_number: str, cosponsors: List[Dict[str, Any]]) -> int:
         """Update bill cosponsors in the database."""
+        # The decorator injects 'cursor' as the first parameter, shifting 'self' to second position
+        
         if not cosponsors:
             return 0
+        
+        # Check if the bill exists in the database with this exact bill_number
+        cursor.execute("SELECT 1 FROM bills WHERE bill_number = %s", (bill_number,))
+        if not cursor.fetchone():
+            # Try uppercase version
+            uppercase_bill_number = bill_number.upper()
+            cursor.execute("SELECT 1 FROM bills WHERE bill_number = %s", (uppercase_bill_number,))
+            if cursor.fetchone():
+                bill_number = uppercase_bill_number
+            else:
+                logger.warning(f"Bill {bill_number} not found in database, cannot update cosponsors")
+                return 0
         
         count = 0
         for cosponsor in cosponsors:
@@ -244,10 +314,24 @@ class BillProcessor:
         return count
     
     @with_db_transaction
-    def update_bill_subjects(self, cursor, bill_number: str, subjects: List[Dict[str, Any]]) -> int:
+    def update_bill_subjects(cursor, self, bill_number: str, subjects: List[Dict[str, Any]]) -> int:
         """Update bill subjects in the database."""
+        # The decorator injects 'cursor' as the first parameter, shifting 'self' to second position
+        
         if not subjects:
             return 0
+        
+        # Check if the bill exists in the database with this exact bill_number
+        cursor.execute("SELECT 1 FROM bills WHERE bill_number = %s", (bill_number,))
+        if not cursor.fetchone():
+            # Try uppercase version
+            uppercase_bill_number = bill_number.upper()
+            cursor.execute("SELECT 1 FROM bills WHERE bill_number = %s", (uppercase_bill_number,))
+            if cursor.fetchone():
+                bill_number = uppercase_bill_number
+            else:
+                logger.warning(f"Bill {bill_number} not found in database, cannot update subjects")
+                return 0
         
         count = 0
         for subject in subjects:
@@ -264,10 +348,24 @@ class BillProcessor:
         return count
     
     @with_db_transaction
-    def update_bill_related_bills(self, cursor, bill_number: str, related_bills: List[Dict[str, Any]]) -> int:
+    def update_bill_related_bills(cursor, self, bill_number: str, related_bills: List[Dict[str, Any]]) -> int:
         """Update related bills in the database."""
+        # The decorator injects 'cursor' as the first parameter, shifting 'self' to second position
+        
         if not related_bills:
             return 0
+        
+        # Check if the bill exists in the database with this exact bill_number
+        cursor.execute("SELECT 1 FROM bills WHERE bill_number = %s", (bill_number,))
+        if not cursor.fetchone():
+            # Try uppercase version
+            uppercase_bill_number = bill_number.upper()
+            cursor.execute("SELECT 1 FROM bills WHERE bill_number = %s", (uppercase_bill_number,))
+            if cursor.fetchone():
+                bill_number = uppercase_bill_number
+            else:
+                logger.warning(f"Bill {bill_number} not found in database, cannot update related bills")
+                return 0
             
         # Convert to array of bill numbers
         related_bill_numbers = [f"{rb.get('type', '')}{rb.get('number', '')}" 
@@ -301,10 +399,35 @@ class BillProcessor:
         try:
             # Fetch bill details
             bill_data = self.fetch_bill_detail(congress, bill_type, bill_number)
-            self.save_bill_data(bill_data, congress, bill_type, bill_number, 'details')
             
-            bill = bill_data['bill']
-            full_bill_number = f"{bill_type}{bill_number}"
+            # Ensure congress is a string before passing to save_bill_data
+            congress_str = str(congress)
+            self.save_bill_data(bill_data, congress_str, bill_type, bill_number, 'details')
+            
+            # Handle different bill structures
+            if isinstance(bill_data['bill'], list):
+                # For older bills (array structure)
+                if not bill_data['bill']:  # Empty array
+                    logger.warning(f"Bill data contains empty bill array for {bill_type}{bill_number}")
+                    results["status"] = "failed"
+                    results["error"] = "Empty bill array"
+                    return results
+                    
+                # Sort by updateDate (descending) and use the most recently updated entry
+                sorted_bills = sorted(bill_data['bill'], 
+                                    key=lambda x: x.get('updateDate', ''), 
+                                    reverse=True)
+                bill = sorted_bills[0]
+                
+                # Log that we found multiple entries
+                if len(bill_data['bill']) > 1:
+                    logger.info(f"Multiple bill entries found for {bill_type}{bill_number}. "
+                              f"Using most recently updated entry from {bill.get('updateDate', 'unknown date')}")
+            else:
+                # For newer bills (dictionary structure)
+                bill = bill_data['bill']
+                
+            full_bill_number = f"{bill_type}{bill_number}".upper()
             
             # Fetch text versions if available
             text_versions_data = None
@@ -312,7 +435,7 @@ class BillProcessor:
                 try:
                     text_versions_url = bill['textVersions']['url']
                     text_versions_data = self.fetch_text_versions(text_versions_url)
-                    self.save_bill_data(text_versions_data, congress, bill_type, bill_number, 'text')
+                    self.save_bill_data(text_versions_data, congress_str, bill_type, bill_number, 'text')
                 except Exception as e:
                     logger.error(f"Error fetching text versions for bill {full_bill_number}: {str(e)}")
             
@@ -322,13 +445,15 @@ class BillProcessor:
                 try:
                     summaries_url = bill['summaries']['url']
                     summaries_data = self.fetch_bill_summaries(summaries_url)
-                    self.save_bill_data(summaries_data, congress, bill_type, bill_number, 'summaries')
+                    self.save_bill_data(summaries_data, congress_str, bill_type, bill_number, 'summaries')
                 except Exception as e:
                     logger.error(f"Error fetching summaries for bill {full_bill_number}: {str(e)}")
             
             # Update bill details
             results["details_updated"] = self.update_bill_details(
-                bill_data, text_versions_data, summaries_data
+                bill_data=bill_data, 
+                text_versions_data=text_versions_data, 
+                summaries_data=summaries_data
             )
             
             # Fetch and update actions
@@ -337,26 +462,43 @@ class BillProcessor:
                 try:
                     actions_url = bill['actions']['url']
                     actions_data = self.fetch_bill_actions(actions_url)
-                    self.save_bill_data(actions_data, congress, bill_type, bill_number, 'actions')
-                    results["actions_updated"] = self.update_bill_actions(full_bill_number, actions_data)
+                    self.save_bill_data(actions_data, congress_str, bill_type, bill_number, 'actions')
+                    results["actions_updated"] = self.update_bill_actions(
+                        bill_number=full_bill_number, 
+                        actions_data=actions_data
+                    )
                 except Exception as e:
                     logger.error(f"Error processing actions for bill {full_bill_number}: {str(e)}")
             
-            # Update cosponsors
-            if 'cosponsors' in bill and 'item' in bill['cosponsors']:
+            # Fetch and update cosponsors
+            if 'cosponsors' in bill and 'url' in bill['cosponsors']:
                 try:
-                    results["cosponsors_updated"] = self.update_bill_cosponsors(
-                        full_bill_number, bill['cosponsors']['item']
-                    )
+                    cosponsors_url = bill['cosponsors']['url']
+                    cosponsors_data = self.fetch_bill_cosponsors(cosponsors_url)
+                    self.save_bill_data(cosponsors_data, congress_str, bill_type, bill_number, 'cosponsors')
+                    
+                    if 'cosponsors' in cosponsors_data:
+                        results["cosponsors_updated"] = self.update_bill_cosponsors(
+                            bill_number=full_bill_number, 
+                            cosponsors=cosponsors_data['cosponsors']
+                        )
                 except Exception as e:
                     logger.error(f"Error processing cosponsors for bill {full_bill_number}: {str(e)}")
             
-            # Update subjects
-            if 'subjects' in bill and 'item' in bill['subjects']:
+            # Fetch and update subjects
+            if 'subjects' in bill and 'url' in bill['subjects']:
                 try:
-                    results["subjects_updated"] = self.update_bill_subjects(
-                        full_bill_number, bill['subjects']['item']
-                    )
+                    subjects_url = bill['subjects']['url']
+                    subjects_data = self.fetch_bill_subjects(subjects_url)
+                    self.save_bill_data(subjects_data, congress_str, bill_type, bill_number, 'subjects')
+                    
+                    if 'subjects' in subjects_data and 'legislativeSubjects' in subjects_data['subjects']:
+                        legislative_subjects = subjects_data['subjects']['legislativeSubjects']
+                        if legislative_subjects:
+                            results["subjects_updated"] = self.update_bill_subjects(
+                                bill_number=full_bill_number, 
+                                subjects=legislative_subjects
+                            )
                 except Exception as e:
                     logger.error(f"Error processing subjects for bill {full_bill_number}: {str(e)}")
             
@@ -371,7 +513,8 @@ class BillProcessor:
                 if related_bills_items:
                     try:
                         results["related_bills_updated"] = self.update_bill_related_bills(
-                            full_bill_number, related_bills_items
+                            bill_number=full_bill_number, 
+                            related_bills=related_bills_items
                         )
                     except Exception as e:
                         logger.error(f"Error processing related bills for bill {full_bill_number}: {str(e)}")
@@ -404,6 +547,11 @@ def get_bills_for_processing(only_recent: bool = True, limit: int = 100) -> List
                     FROM bills
                     WHERE text_versions IS NULL
                        OR NOT EXISTS (SELECT 1 FROM bill_actions WHERE bill_actions.bill_number = bills.bill_number)
+                       OR NOT EXISTS (SELECT 1 FROM bill_subjects WHERE bill_subjects.bill_number = bills.bill_number)
+                       OR (
+                           bills.sponsor_id IS NOT NULL
+                           AND NOT EXISTS (SELECT 1 FROM bill_cosponsors WHERE bill_cosponsors.bill_number = bills.bill_number)
+                       )
                     ORDER BY introduced_date DESC
                     LIMIT %s
                 """, (limit,))

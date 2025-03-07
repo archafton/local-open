@@ -220,14 +220,14 @@ class MemberEnrichment:
             sponsored_data = self.fetch_sponsored_legislation(bioguide_id, from_date)
             if sponsored_data:
                 self.save_legislation_data(sponsored_data, bioguide_id, 'sponsored')
-                results["sponsored"] = self.update_sponsored_legislation(member_id, sponsored_data)
+                results["sponsored"] = self.update_sponsored_legislation(member_id=member_id, data=sponsored_data)
                 logger.info(f"Processed {len(sponsored_data)} sponsored bills for {bioguide_id}")
                 
             # Fetch and process cosponsored legislation
             cosponsored_data = self.fetch_cosponsored_legislation(bioguide_id, from_date)
             if cosponsored_data:
                 self.save_legislation_data(cosponsored_data, bioguide_id, 'cosponsored')
-                results["cosponsored"] = self.update_cosponsored_legislation(member_id, cosponsored_data)
+                results["cosponsored"] = self.update_cosponsored_legislation(member_id=member_id, data=cosponsored_data)
                 logger.info(f"Processed {len(cosponsored_data)} cosponsored bills for {bioguide_id}")
                 
             # Update member's last_updated timestamp

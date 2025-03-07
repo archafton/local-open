@@ -329,7 +329,7 @@ def main():
                 members = members_data['members']
                 
             logger.info(f"Updating database with {len(members)} members")
-            stats = update_database(members)
+            stats = update_database(members=members)
             logger.info(f"Database updated: {stats['inserted']} inserted, {stats['updated']} updated, "
                        f"{stats['skipped']} skipped, {stats['error']} errors")
         else:

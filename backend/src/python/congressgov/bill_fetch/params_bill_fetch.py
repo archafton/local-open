@@ -1,4 +1,5 @@
 # parameterized_bill_fetch.py
+# THIS IS LARGELY FOR TESTING PURPOSES - NOT FOR PRODUCTION - also, it is broken. Because testing.
 import os
 import json
 import requests

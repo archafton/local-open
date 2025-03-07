@@ -24,7 +24,7 @@ def create_app():
     app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', 'True') == 'True'
     
     # Enable CORS with specific configuration
-    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3001"}}, supports_credentials=True)
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:3001"]}}, supports_credentials=True)
     
     # Register error handlers
     @app.errorhandler(AppError)

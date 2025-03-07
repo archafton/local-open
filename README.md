@@ -11,39 +11,60 @@ project-tacitus/
 ├── backend/
 │   └── src/
 │       ├── api/                    # API routes
-│       │   ├── __init__.py         # API blueprint initialization
+│       │   ├── init.py         # API blueprint initialization
 │       │   ├── analytics.py        # Analytics endpoints
 │       │   ├── bills.py           # Bill-related endpoints
 │       │   ├── representatives.py  # Representative endpoints
 │       │   └── tags.py            # Tag system endpoints
 │       ├── models/                 # Data models
-│       │   ├── __init__.py         # Model exports
+│       │   ├── init.py         # Model exports
 │       │   ├── analytics.py        # Analytics queries
 │       │   ├── bill.py            # Bill-related queries
 │       │   ├── representative.py   # Representative queries
 │       │   └── tag.py             # Tag system queries
 │       ├── utils/                  # Utility functions
-│       │   ├── __init__.py         # Utility exports
+│       │   ├── init.py         # Utility exports
 │       │   ├── database.py        # Database connection handling
 │       │   ├── exceptions.py      # Custom exceptions
 │       │   └── helpers.py         # Helper functions
 │       ├── python/
 │       │   └── congressgov/
+│       │       ├── utils/          # Shared utilities
+│       │       │   ├── init.py # Utility exports
+│       │       │   ├── api.py      # API client with retry logic
+│       │       │   ├── bill_utils.py # Bill-specific utilities
+│       │       │   ├── database.py # Database connection handling
+│       │       │   ├── file_storage.py # File operations
+│       │       │   ├── logging_config.py # Logging setup
+│       │       │   ├── member_utils.py # Member-specific utilities
+│       │       │   └── tag_utils.py # Tag system utilities
 │       │       ├── bill_fetch/     # Bill fetching and processing
+│       │       │   ├── bill_fetch_core.py # Main bill fetching
+│       │       │   ├── bill_detail_processor.py # Bill detail processing
+│       │       │   ├── bill_batch_processor.py # Batch processing
+│       │       │   ├── bill_validation.py # Validation and reporting
+│       │       │   └── params_bill_fetch.py # TEMP TESTING Parameterized fetching
 │       │       ├── bill_summary/   # AI-powered bill summarization
 │       │       └── members_fetch/  # Representative data fetching
+│       │           ├── member_fetch_core.py # Main member fetching
+│       │           ├── member_detail_processor.py # Detail processing
+│       │           ├── member_enrichment.py # Legislation association
+│       │           ├── member_batch_processor.py # Batch processing
+│       │           └── member_bio.py # Biographical information scraping
 │       ├── app.py                  # Application setup
 │       └── schema.sql             # Database schema
 ├── Docs/
 │   ├── 1_Project_Overview/         # Project vision and goals
 │   ├── 2_Technical_Documentation/  # Implementation details
+│   │   ├── Bill_Processing_Guide.md # Bill processing documentation
+│   │   └── Member_Processing_Guide.md # Member processing documentation
 │   ├── 3_API_Documentation/        # API endpoints and usage
 │   └── 4_Deployment_Guides/        # Setup and deployment guides
 └── frontend/
-    └── src/
-        ├── components/             # React components
-        ├── pages/                  # Page layouts
-        └── styles/                 # CSS styles
+└── src/
+├── components/             # React components
+├── pages/                  # Page layouts
+└── styles/                 # CSS styles
 ```
 
 ## Features

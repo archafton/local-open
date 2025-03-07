@@ -142,7 +142,7 @@ const BillsPerCongress = () => {
     };
 
     fetchData();
-  }, []);
+  }, [processData]);
 
   if (loading) {
     return (

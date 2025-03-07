@@ -9,9 +9,8 @@ brew services start postgresql
 
 2. Start backend
 ```bash
-cd backend
-source venv/bin/activate
-python3 src/api.py
+source backend/venv/bin/activate
+python3 backend/src/app.py
 ```
 
 3. Start frontend
