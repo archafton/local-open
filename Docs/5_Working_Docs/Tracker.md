@@ -1,5 +1,9 @@
 ## This is a working document to track progress and ownership:
 
+New python fetch! So I think bill_fetch_core.py works now. Schema changes to make it happen. Made timestamp comparisons offset-naive...that might bite me later. Now, running bill_detail_processor.py I think we've got the other issues sorted with fetch_core and detail_processor. validation is working, and seemingly so is batch_processor.
+
+The bills details page `frontend/src/pages/BillDetails.js` is using the wrong Tags from the api I think. We also have a huge miss on the bills details page with not showing any of the "subjects" that we're now FINALLY pulling and populating correctly. You can see these subjects populating nicely on member C001088 (http://localhost:3000/representatives/C001088) under Cosponsored Bills.
+
 
 ----
 Trailing prompt

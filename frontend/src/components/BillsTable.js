@@ -1,15 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const STATUS_MAP = {
-  'Introduced': ['Introduced', 'Introduction'],
-  'In Committee': ['Committee', 'Referred to'],
-  'Reported': ['Reported'],
-  'Passed House': ['Passed House', 'House passage'],
-  'Passed Senate': ['Passed Senate', 'Senate passage'],
-  'Enacted': ['Enacted', 'Became Public Law'],
-  'Became Law': ['Became Law', 'Became Public Law']
-};
 
 const Modal = ({ title, content, onClose }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -113,11 +103,8 @@ const BillsTable = ({ data, sortConfig, onSort }) => {
               Introduced {getSortIcon('introduced_date')}
             </th>
             <th className="py-3 px-4 text-left">Status</th>
-            <th 
-              className="py-3 px-4 text-left cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600"
-              onClick={() => requestSort('tags')}
-            >
-              Tags {getSortIcon('tags')}
+            <th className="py-3 px-4 text-left">
+              Tags
             </th>
             <th 
               className="py-3 px-4 text-left cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600"
